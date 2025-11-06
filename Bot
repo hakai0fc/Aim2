@@ -1,13 +1,3 @@
--- Limpar execuções anteriores
-pcall(function()
-	if game.CoreGui:FindFirstChild("AimbotFOV_UI") then
-		game.CoreGui.AimbotFOV_UI:Destroy()
-	end
-	if game.CoreGui:FindFirstChild("AimbotFOV_FOV") then
-		game.CoreGui.AimbotFOV_FOV:Destroy()
-	end
-end)
-
 -- Carregar Rayfield
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/hakai0fc/SiriusSoftWareLtd/refs/heads/main/RayfieldSource'))()
 
