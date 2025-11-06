@@ -1,12 +1,10 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
-
--- Configurações
 local AimbotEnabled = false
 local TeamCheck = true
 local WallCheck = true
@@ -16,12 +14,9 @@ local ESPTeamCheck = true
 local HighlightColor = Color3.fromRGB(255, 0, 0)
 local FOVRainbow = false
 local FOVColor = Color3.fromRGB(0, 255, 0)
-
--- FOV Circle
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.ResetOnSpawn = false
-
 local FOVCircle = Instance.new("Frame")
 FOVCircle.Name = "FOV"
 FOVCircle.Parent = ScreenGui
@@ -29,15 +24,12 @@ FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
 FOVCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
 FOVCircle.Size = UDim2.new(0, FOVRadius * 2, 0, FOVRadius * 2)
 FOVCircle.BackgroundTransparency = 1
-
 local UIStroke = Instance.new("UIStroke", FOVCircle)
 UIStroke.Thickness = 2
 UIStroke.Color = FOVColor
-
 local UICorner = Instance.new("UICorner", FOVCircle)
 UICorner.CornerRadius = UDim.new(1, 0)
 
--- Janela Rayfield
 local Window = Rayfield:CreateWindow({
 	Name = "Aimbot FOV",
 	LoadingTitle = "Carregando...",
@@ -50,25 +42,24 @@ local Window = Rayfield:CreateWindow({
 	KeySystem = false
 })
 
--- Aba Principal
 local Tab = Window:CreateTab("Principal", 4483362458)
 Tab:CreateToggle({
 	Name = "Ativar Aimbot",
 	CurrentValue = false,
 	Callback = function(value)
 		AimbotEnabled = value
-		FOVCircle.Visible = value and FOVRadius > 0
+		FOVCircle.Visible = value
 	end
 })
 Tab:CreateToggle({
-	Name = "Verificação de Time",
+	Name = "Verificar Times",
 	CurrentValue = true,
 	Callback = function(value)
 		TeamCheck = value
 	end
 })
 Tab:CreateToggle({
-	Name = "Verificação de Paredes",
+	Name = "Verificar Paredes",
 	CurrentValue = true,
 	Callback = function(value)
 		WallCheck = value
@@ -81,16 +72,11 @@ Tab:CreateSlider({
 	CurrentValue = 100,
 	Callback = function(value)
 		FOVRadius = value
-		if value <= 0 then
-			FOVCircle.Visible = false
-		else
-			FOVCircle.Visible = AimbotEnabled
-			FOVCircle.Size = UDim2.new(0, value * 2, 0, value * 2)
-		end
+		FOVCircle.Size = UDim2.new(0, value * 2, 0, value * 2)
+		FOVCircle.Visible = value > 0
 	end
 })
 
--- Aba ESP
 local ESPTab = Window:CreateTab("ESP", 4483362458)
 ESPTab:CreateToggle({
 	Name = "Ativar Destaque (Highlight)",
@@ -108,7 +94,7 @@ ESPTab:CreateToggle({
 	end
 })
 ESPTab:CreateToggle({
-	Name = "Verificação de Time (Highlight)",
+	Name = "Verificar Times no Destaque",
 	CurrentValue = true,
 	Callback = function(value)
 		ESPTeamCheck = value
@@ -137,10 +123,9 @@ ESPTab:CreateColorPicker({
 	end
 })
 
--- Aba Visual
 local VisualTab = Window:CreateTab("Visual", 4483362458)
 VisualTab:CreateToggle({
-	Name = "FOV Arco-íris",
+	Name = "FOV Arco-Íris",
 	CurrentValue = false,
 	Callback = function(value)
 		FOVRainbow = value
@@ -157,10 +142,85 @@ VisualTab:CreateColorPicker({
 	end
 })
 
--- Aba Otimização
+VisualTab:CreateToggle({
+	Name = "Efeito Slow Motion PvP",
+	CurrentValue = false,
+	Callback = function(enabled)
+		if enabled then
+			local tween = TweenService:Create(game:GetService("Lighting"), TweenInfo.new(0.5), {ClockTime = 0.25})
+			tween:Play()
+			workspace.Gravity = 100
+		else
+			local tween = TweenService:Create(game:GetService("Lighting"), TweenInfo.new(0.5), {ClockTime = 1})
+			tween:Play()
+			workspace.Gravity = 196.2
+		end
+	end
+})
+
+local Lighting = game:GetService("Lighting")
+local StarsGui
+local OriginalAmbient = Lighting.Ambient
+local OriginalOutdoorAmbient = Lighting.OutdoorAmbient
+local OriginalBrightness = Lighting.Brightness
+local OriginalClockTime = Lighting.ClockTime
+local OriginalSky = Lighting:FindFirstChildOfClass("Sky")
+
+VisualTab:CreateToggle({
+	Name = "Modo Céu PvP Suave",
+	CurrentValue = false,
+	Callback = function(value)
+		if value then
+			Lighting.Ambient = Color3.fromRGB(120, 130, 140)
+			Lighting.OutdoorAmbient = Color3.fromRGB(90, 100, 110)
+			Lighting.Brightness = 1.5
+			Lighting.ClockTime = 18.5
+			if OriginalSky then OriginalSky.Enabled = false end
+			local PvPSky = Instance.new("Sky")
+			PvPSky.Name = "PvPSky"
+			PvPSky.SkyboxBk = "rbxassetid://1022207611"
+			PvPSky.SkyboxDn = "rbxassetid://1022207683"
+			PvPSky.SkyboxFt = "rbxassetid://1022207746"
+			PvPSky.SkyboxLf = "rbxassetid://1022207814"
+			PvPSky.SkyboxRt = "rbxassetid://1022207886"
+			PvPSky.SkyboxUp = "rbxassetid://1022207958"
+			PvPSky.Parent = Lighting
+			StarsGui = Instance.new("ScreenGui", game.CoreGui)
+			StarsGui.Name = "StarsGui"
+			StarsGui.IgnoreGuiInset = true
+			StarsGui.ResetOnSpawn = false
+			for i = 1, 50 do
+				local star = Instance.new("Frame")
+				star.Size = UDim2.new(0, 2, 0, 2)
+				star.Position = UDim2.new(math.random(), 0, math.random(), 0)
+				star.BackgroundColor3 = Color3.new(1, 1, 1)
+				star.BackgroundTransparency = 0.7
+				star.BorderSizePixel = 0
+				star.AnchorPoint = Vector2.new(0.5, 0.5)
+				star.Parent = StarsGui
+				coroutine.wrap(function()
+					while StarsGui and StarsGui.Parent do
+						star.BackgroundTransparency = 0.5 + math.sin(tick() * math.random(1,3)) * 0.4
+						wait(0.1)
+					end
+				end)()
+			end
+		else
+			Lighting.Ambient = OriginalAmbient
+			Lighting.OutdoorAmbient = OriginalOutdoorAmbient
+			Lighting.Brightness = OriginalBrightness
+			Lighting.ClockTime = OriginalClockTime
+			local PvPSky = Lighting:FindFirstChild("PvPSky")
+			if PvPSky then PvPSky:Destroy() end
+			if OriginalSky then OriginalSky.Enabled = true end
+			if StarsGui then StarsGui:Destroy() StarsGui = nil end
+		end
+	end
+})
+
 local OptimTab = Window:CreateTab("Otimização", 4483362458)
 OptimTab:CreateButton({
-	Name = "Otimizar FPS (melhor desempenho)",
+	Name = "Otimizar FPS (Melhor Desempenho)",
 	Callback = function()
 		settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
 		for _, v in ipairs(workspace:GetDescendants()) do
@@ -178,20 +238,22 @@ OptimTab:CreateButton({
 
 local FPSUnlockerEnabled = false
 OptimTab:CreateToggle({
-	Name = "Desbloquear FPS (sem limite de 60)",
+	Name = "Desbloquear FPS (Sem Limite de 60)",
 	CurrentValue = false,
 	Callback = function(value)
 		FPSUnlockerEnabled = value
 		if value then
 			setfpscap(1000)
+			Rayfield:Notify({Title = "FPS Desbloqueado", Content = "Limite de FPS removido.", Duration = 4})
 		else
 			setfpscap(60)
+			Rayfield:Notify({Title = "FPS Restaurado", Content = "Limite de FPS ajustado para 60.", Duration = 4})
 		end
 	end
 })
 
 OptimTab:CreateButton({
-	Name = "Otimizar Ping (menos uso de rede)",
+	Name = "Otimizar Ping (Reduz Uso de Rede)",
 	Callback = function()
 		for _, obj in ipairs(workspace:GetDescendants()) do
 			if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then
@@ -208,10 +270,35 @@ OptimTab:CreateButton({
 		workspace.Terrain.WaterWaveSpeed = 0
 		workspace.Terrain.WaterReflectance = 0
 		workspace.Terrain.WaterTransparency = 1
+		Rayfield:Notify({
+			Title = "Ping Otimizado",
+			Content = "Configurações aplicadas com sucesso!",
+			Duration = 5
+		})
 	end
 })
 
--- Highlight
+OptimTab:CreateButton({
+	Name = "Skybox PvP (Estilo Brilhante)",
+	Callback = function()
+		local Lighting = game:GetService("Lighting")
+		for _, v in ipairs(Lighting:GetChildren()) do
+			if v:IsA("Sky") then v:Destroy() end
+		end
+		local sky = Instance.new("Sky", Lighting)
+		sky.SkyboxBk = "rbxassetid://159454299"
+		sky.SkyboxDn = "rbxassetid://159454296"
+		sky.SkyboxFt = "rbxassetid://159454293"
+		sky.SkyboxLf = "rbxassetid://159454286"
+		sky.SkyboxRt = "rbxassetid://159454300"
+		sky.SkyboxUp = "rbxassetid://159454288"
+		sky.StarCount = 3000
+		sky.SunAngularSize = 0
+		sky.MoonAngularSize = 11
+		Lighting.TimeOfDay = "18:00:00"
+	end
+})
+
 local function ApplyHighlight(player)
 	if not player.Character then return end
 	local existing = player.Character:FindFirstChild("ESPHighlight")
@@ -246,7 +333,6 @@ Players.PlayerAdded:Connect(function(player)
 	SetupCharacterHighlight(player)
 end)
 
--- Aimbot
 local function GetClosestTarget()
 	local closest = nil
 	local shortestDist = FOVRadius
@@ -286,7 +372,6 @@ RunService.RenderStepped:Connect(function()
 		local color = Color3.fromHSV(hue, 1, 1)
 		UIStroke.Color = color
 	end
-
 	if AimbotEnabled then
 		local target = GetClosestTarget()
 		if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
