@@ -6,6 +6,7 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local TweenService = game:GetService("TweenService")
 
+-- Config
 local AimbotEnabled = false
 local TeamCheck = true
 local WallCheck = true
@@ -16,6 +17,7 @@ local HighlightColor = Color3.fromRGB(255, 0, 0)
 local FOVRainbow = false
 local FOVColor = Color3.fromRGB(0, 255, 0)
 
+-- FOV Circle (parentado em CoreGui como na sua versão que funciona)
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.ResetOnSpawn = false
@@ -36,7 +38,7 @@ UIStroke.Color = FOVColor
 local UICorner = Instance.new("UICorner", FOVCircle)
 UICorner.CornerRadius = UDim.new(1, 0)
 
--- Rayfield GUI
+-- Rayfield GUI (mesmo loader que você usou)
 local Window = Rayfield:CreateWindow({
 	Name = "Aimbot FOV",
 	LoadingTitle = "Carregando...",
@@ -49,7 +51,7 @@ local Window = Rayfield:CreateWindow({
 	KeySystem = false
 })
 
--- Aba Principal
+-- Aba Principal (labels em PT-BR)
 local Tab = Window:CreateTab("Principal", 4483362458)
 Tab:CreateToggle({
 	Name = "Ativar Aimbot",
@@ -73,21 +75,19 @@ Tab:CreateToggle({
 		WallCheck = value
 	end
 })
-Tab:CreateTextbox({
+-- Uso do Slider porque é o controle que você confirmou que funciona no seu Rayfield
+Tab:CreateSlider({
 	Name = "Tamanho do FOV",
-	PlaceholderText = "Digite um valor numérico para o raio (ex: 100)",
-	Text = tostring(FOVRadius),
-	RemoveTextAfterFocusLost = false,
+	Range = {50, 300},
+	Increment = 5,
+	CurrentValue = FOVRadius,
 	Callback = function(value)
-		local num = tonumber(value)
-		if num then
-			FOVRadius = num
-			FOVCircle.Size = UDim2.new(0, math.floor(FOVRadius) * 2, 0, math.floor(FOVRadius) * 2)
-		end
+		FOVRadius = value
+		FOVCircle.Size = UDim2.new(0, value * 2, 0, value * 2)
 	end
 })
 
--- Aba ESP
+-- Aba ESP (PT-BR)
 local ESPTab = Window:CreateTab("ESP", 4483362458)
 ESPTab:CreateToggle({
 	Name = "Ativar Highlight",
@@ -134,7 +134,7 @@ ESPTab:CreateColorPicker({
 	end
 })
 
--- Aba Visual
+-- Aba Visual (simplificada: só FOV Rainbow + cor do FOV; removi slow motion e sky)
 local VisualTab = Window:CreateTab("Visual", 4483362458)
 VisualTab:CreateToggle({
 	Name = "FOV Arco-íris",
@@ -154,7 +154,7 @@ VisualTab:CreateColorPicker({
 	end
 })
 
--- Aba Otimização
+-- Aba Otimização (PT-BR)
 local OptimTab = Window:CreateTab("Otimização", 4483362458)
 OptimTab:CreateButton({
 	Name = "Otimizar Ping (menos uso de rede)",
@@ -176,11 +176,6 @@ OptimTab:CreateButton({
 			workspace.Terrain.WaterReflectance = 0
 			workspace.Terrain.WaterTransparency = 1
 		end
-		for _, gui in ipairs(game.CoreGui:GetDescendants()) do
-			if gui:IsA("ImageLabel") or gui:IsA("ImageButton") then
-				gui.ImageTransparency = 0.2
-			end
-		end
 		Rayfield:Notify({
 			Title = "Ping Otimizado",
 			Content = "Redução do uso de rede aplicada. Pode ajudar em PvP.",
@@ -195,15 +190,11 @@ OptimTab:CreateToggle({
 	CurrentValue = false,
 	Callback = function(value)
 		FPSUnlockerEnabled = value
-		if value then
-			pcall(function() setfpscap(1000) end)
-		else
-			pcall(function() setfpscap(60) end)
-		end
+		if value then pcall(function() setfpscap(1000) end) else pcall(function() setfpscap(60) end) end
 	end
 })
 
--- Função Highlight
+-- Highlight
 local function ApplyHighlight(player)
 	if not player.Character then return end
 	local existing = player.Character:FindFirstChild("ESPHighlight")
@@ -239,7 +230,7 @@ Players.PlayerAdded:Connect(function(player)
 	SetupCharacterHighlight(player)
 end)
 
--- Aimbot
+-- Aimbot (usei goto para compatibilidade)
 local function GetClosestTarget()
 	local closest = nil
 	local shortestDist = FOVRadius
@@ -279,8 +270,7 @@ end
 
 RunService.RenderStepped:Connect(function()
 	if FOVRainbow then
-		local hue = tick() % 5 / 5
-		UIStroke.Color = Color3.fromHSV(hue, 1, 1)
+		UIStroke.Color = Color3.fromHSV(tick() % 5 / 5, 1, 1)
 	end
 
 	if AimbotEnabled then
