@@ -47,6 +47,7 @@ local Window = Rayfield:CreateWindow({
 	KeySystem = false
 })
 
+-- Aba Principal
 local Tab = Window:CreateTab("Main", 4483362458)
 Tab:CreateToggle({
 	Name = "Ativar Aimbot",
@@ -86,6 +87,7 @@ Tab:CreateTextbox({
     end
 })
 
+-- Aba ESP
 local ESPTab = Window:CreateTab("ESP", 4483362458)
 ESPTab:CreateToggle({
 	Name = "Ativar Highlight",
@@ -132,6 +134,7 @@ ESPTab:CreateColorPicker({
 	end
 })
 
+-- Aba Visual
 local VisualTab = Window:CreateTab("Visual", 4483362458)
 VisualTab:CreateToggle({
 	Name = "FOV Arco-íris",
@@ -151,6 +154,7 @@ VisualTab:CreateColorPicker({
 	end
 })
 
+-- Aba Otimização
 local OptimTab = Window:CreateTab("Otimização", 4483362458)
 OptimTab:CreateButton({
     Name = "Otimizar Ping (menos uso de rede)",
@@ -198,6 +202,7 @@ OptimTab:CreateToggle({
 	end
 })
 
+-- Highlight
 local function ApplyHighlight(player)
 	if not player.Character then return end
 	local existing = player.Character:FindFirstChild("ESPHighlight")
@@ -233,6 +238,7 @@ Players.PlayerAdded:Connect(function(player)
 	SetupCharacterHighlight(player)
 end)
 
+-- Aimbot
 local function GetClosestTarget()
 	local closest = nil
 	local shortestDist = FOVRadius
