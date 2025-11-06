@@ -1,19 +1,22 @@
--- limpar execuções anteriores
+-- Limpar execuções anteriores
 pcall(function()
-	local old = game.CoreGui:FindFirstChild("AimbotFOV_UI")
-	if old then old:Destroy() end
-	local oldFOV = game.CoreGui:FindFirstChild("AimbotFOV_FOV")
-	if oldFOV then oldFOV:Destroy() end
+	if game.CoreGui:FindFirstChild("AimbotFOV_UI") then
+		game.CoreGui.AimbotFOV_UI:Destroy()
+	end
+	if game.CoreGui:FindFirstChild("AimbotFOV_FOV") then
+		game.CoreGui.AimbotFOV_FOV:Destroy()
+	end
 end)
 
+-- Carregar Rayfield
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/hakai0fc/SiriusSoftWareLtd/refs/heads/main/RayfieldSource'))()
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-local TweenService = game:GetService("TweenService")
 
+-- Configurações
 local AimbotEnabled = false
 local TeamCheck = true
 local WallCheck = true
@@ -24,6 +27,7 @@ local HighlightColor = Color3.fromRGB(255, 0, 0)
 local FOVRainbow = false
 local FOVColor = Color3.fromRGB(0, 255, 0)
 
+-- Criar FOV
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AimbotFOV_UI"
 ScreenGui.Parent = game.CoreGui
@@ -34,8 +38,8 @@ local FOVCircle = Instance.new("Frame")
 FOVCircle.Name = "AimbotFOV_FOV"
 FOVCircle.Parent = ScreenGui
 FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
-FOVCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
-FOVCircle.Size = UDim2.new(0, FOVRadius * 2, 0, FOVRadius * 2)
+FOVCircle.Position = UDim2.new(0.5,0,0.5,0)
+FOVCircle.Size = UDim2.new(0, FOVRadius*2, 0, FOVRadius*2)
 FOVCircle.BackgroundTransparency = 1
 FOVCircle.Visible = false
 
@@ -44,184 +48,147 @@ UIStroke.Thickness = 2
 UIStroke.Color = FOVColor
 
 local UICorner = Instance.new("UICorner", FOVCircle)
-UICorner.CornerRadius = UDim.new(1, 0)
+UICorner.CornerRadius = UDim.new(1,0)
 
+-- Criar janela Rayfield
 local Window = Rayfield:CreateWindow({
 	Name = "Aimbot FOV",
 	LoadingTitle = "Carregando...",
 	LoadingSubtitle = "By HAKAI",
-	ConfigurationSaving = {
-		Enabled = true,
-		FolderName = "AimbotFOV",
-		FileName = "settings"
-	},
-	KeySystem = false
+	ConfigurationSaving = {Enabled=true, FolderName="AimbotFOV", FileName="settings"},
+	KeySystem=false
 })
 
-local Tab = Window:CreateTab("Main", 4483362458)
-Tab:CreateToggle({
+-- Main Tab
+local MainTab = Window:CreateTab("Main",4483362458)
+MainTab:CreateToggle({
 	Name = "Ativar Aimbot",
 	CurrentValue = false,
-	Callback = function(value)
-		AimbotEnabled = value
-		FOVCircle.Visible = value
+	Callback = function(v)
+		AimbotEnabled = v
+		FOVCircle.Visible = v
 	end
 })
-Tab:CreateToggle({
-	Name = "Checar Time",
+MainTab:CreateToggle({
+	Name = "Team Check",
 	CurrentValue = true,
-	Callback = function(value)
-		TeamCheck = value
-	end
+	Callback = function(v) TeamCheck = v end
 })
-Tab:CreateToggle({
-	Name = "Checar Parede",
+MainTab:CreateToggle({
+	Name = "Wall Check",
 	CurrentValue = true,
-	Callback = function(value)
-		WallCheck = value
-	end
+	Callback = function(v) WallCheck = v end
 })
-Tab:CreateTextbox({
+MainTab:CreateTextbox({
 	Name = "Tamanho do FOV",
 	PlaceholderText = "Digite um valor de 1 a 300",
 	Text = tostring(FOVRadius),
-	RemoveTextAfterFocusLost = false,
+	RemoveTextAfterFocusLost=false,
 	Callback = function(value)
 		local num = tonumber(value)
 		if num then
-			if num < 1 then num = 1 end
-			if num > 300 then num = 300 end
-			FOVRadius = num
-			FOVCircle.Size = UDim2.new(0, FOVRadius * 2, 0, FOVRadius * 2)
+			if num<1 then num=1 end
+			if num>300 then num=300 end
+			FOVRadius=num
+			FOVCircle.Size=UDim2.new(0,FOVRadius*2,0,FOVRadius*2)
 		end
 	end
 })
 
-local ESPTab = Window:CreateTab("ESP", 4483362458)
+-- ESP Tab
+local ESPTab = Window:CreateTab("ESP",4483362458)
 ESPTab:CreateToggle({
-	Name = "Ativar Highlight",
-	CurrentValue = false,
-	Callback = function(value)
-		ESPEnabled = value
-		for _, player in ipairs(Players:GetPlayers()) do
-			if player ~= LocalPlayer then
-				local highlight = player.Character and player.Character:FindFirstChild("ESPHighlight")
-				if highlight then
-					highlight.Enabled = value and (not ESPTeamCheck or player.Team ~= LocalPlayer.Team)
-				end
+	Name="Ativar Highlight",
+	CurrentValue=false,
+	Callback=function(v)
+		ESPEnabled=v
+		for _,p in ipairs(Players:GetPlayers()) do
+			if p~=LocalPlayer and p.Character then
+				local h=p.Character:FindFirstChild("ESPHighlight")
+				if h then h.Enabled = v and (not ESPTeamCheck or p.Team~=LocalPlayer.Team) end
 			end
 		end
 	end
 })
 ESPTab:CreateToggle({
-	Name = "Checar Time Highlight",
-	CurrentValue = true,
-	Callback = function(value)
-		ESPTeamCheck = value
-		for _, player in ipairs(Players:GetPlayers()) do
-			if player ~= LocalPlayer then
-				local highlight = player.Character and player.Character:FindFirstChild("ESPHighlight")
-				if highlight then
-					highlight.Enabled = ESPEnabled and (not value or player.Team ~= LocalPlayer.Team)
-				end
+	Name="Team Check Highlight",
+	CurrentValue=true,
+	Callback=function(v)
+		ESPTeamCheck=v
+		for _,p in ipairs(Players:GetPlayers()) do
+			if p~=LocalPlayer and p.Character then
+				local h=p.Character:FindFirstChild("ESPHighlight")
+				if h then h.Enabled=ESPEnabled and (not v or p.Team~=LocalPlayer.Team) end
 			end
 		end
 	end
 })
 ESPTab:CreateColorPicker({
-	Name = "Cor do Highlight",
-	Color = HighlightColor,
-	Callback = function(value)
-		HighlightColor = value
-		for _, player in ipairs(Players:GetPlayers()) do
-			local highlight = player.Character and player.Character:FindFirstChild("ESPHighlight")
-			if highlight then
-				highlight.OutlineColor = value
-				highlight.FillColor = value
-			end
+	Name="Cor do Highlight",
+	Color=HighlightColor,
+	Callback=function(v)
+		HighlightColor=v
+		for _,p in ipairs(Players:GetPlayers()) do
+			local h=p.Character and p.Character:FindFirstChild("ESPHighlight")
+			if h then h.FillColor=v h.OutlineColor=v end
 		end
 	end
 })
 
-local VisualTab = Window:CreateTab("Visual", 4483362458)
+-- Visual Tab
+local VisualTab = Window:CreateTab("Visual",4483362458)
 VisualTab:CreateToggle({
-	Name = "FOV Arco-íris",
-	CurrentValue = false,
-	Callback = function(value)
-		FOVRainbow = value
-	end
+	Name="FOV Arco-íris",
+	CurrentValue=false,
+	Callback=function(v) FOVRainbow=v end
 })
 VisualTab:CreateColorPicker({
-	Name = "Cor do FOV",
-	Color = FOVColor,
-	Callback = function(value)
-		FOVColor = value
-		if not FOVRainbow then
-			UIStroke.Color = value
-		end
+	Name="Cor do FOV",
+	Color=FOVColor,
+	Callback=function(v)
+		FOVColor=v
+		if not FOVRainbow then UIStroke.Color=v end
 	end
 })
 
-local OptimTab = Window:CreateTab("Otimização", 4483362458)
+-- Optimização Tab
+local OptimTab = Window:CreateTab("Otimização",4483362458)
 OptimTab:CreateButton({
-	Name = "Otimizar Ping (menos uso de rede)",
-	Callback = function()
-		for _, obj in ipairs(workspace:GetDescendants()) do
-			if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then
-				obj.Enabled = false
-			elseif obj:IsA("Explosion") then
-				obj.Visible = false
-			end
+	Name="Otimizar Ping (menos uso de rede)",
+	Callback=function()
+		for _,obj in ipairs(workspace:GetDescendants()) do
+			if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then obj.Enabled=false
+			elseif obj:IsA("Explosion") then obj.Visible=false end
 		end
-		pcall(function() settings().Physics.AllowSleep = true end)
-		pcall(function() settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Default end)
-		pcall(function() game:GetService("Lighting").GlobalShadows = false end)
-		pcall(function() game:GetService("Lighting").FogEnd = 100000 end)
-		if workspace:FindFirstChild("Terrain") then
-			workspace.Terrain.WaterWaveSize = 0
-			workspace.Terrain.WaterWaveSpeed = 0
-			workspace.Terrain.WaterReflectance = 0
-			workspace.Terrain.WaterTransparency = 1
-		end
-		for _, gui in ipairs(game.CoreGui:GetDescendants()) do
-			if gui:IsA("ImageLabel") or gui:IsA("ImageButton") then
-				gui.ImageTransparency = 0.2
-			end
-		end
-		Rayfield:Notify({
-			Title = "Ping Otimizado",
-			Content = "Redução do uso de rede aplicada. Pode ajudar em PvP.",
-			Duration = 5
-		})
+		pcall(function() settings().Physics.AllowSleep=true end)
+		pcall(function() settings().Physics.PhysicsEnvironmentalThrottle=Enum.EnviromentalPhysicsThrottle.Default end)
+		Rayfield:Notify({Title="Ping Otimizado",Content="Redução do uso de rede aplicada",Duration=5})
 	end
 })
-
-local FPSUnlockerEnabled = false
+local FPSUnlocker=false
 OptimTab:CreateToggle({
-	Name = "FPS Unlocker (sem limite de 60 FPS)",
-	CurrentValue = false,
-	Callback = function(value)
-		FPSUnlockerEnabled = value
-		if value then pcall(function() setfpscap(1000) end) else pcall(function() setfpscap(60) end) end
-	end
+	Name="FPS Unlocker (sem limite)",
+	CurrentValue=false,
+	Callback=function(v) FPSUnlocker=v if v then pcall(setfpscap,1000) else pcall(setfpscap,60) end end
 })
 
+-- Highlight
 local function ApplyHighlight(player)
 	if not player.Character then return end
-	local existing = player.Character:FindFirstChild("ESPHighlight")
-	if existing then existing:Destroy() end
-	local highlight = Instance.new("Highlight")
-	highlight.Name = "ESPHighlight"
-	highlight.FillTransparency = 1
-	highlight.OutlineTransparency = 0
-	highlight.OutlineColor = HighlightColor
-	highlight.FillColor = HighlightColor
-	highlight.Enabled = ESPEnabled and (not ESPTeamCheck or player.Team ~= LocalPlayer.Team)
-	highlight.Parent = player.Character
+	local h=player.Character:FindFirstChild("ESPHighlight")
+	if h then h:Destroy() end
+	local hl=Instance.new("Highlight")
+	hl.Name="ESPHighlight"
+	hl.FillTransparency=1
+	hl.OutlineTransparency=0
+	hl.FillColor=HighlightColor
+	hl.OutlineColor=HighlightColor
+	hl.Enabled=ESPEnabled and (not ESPTeamCheck or player.Team~=LocalPlayer.Team)
+	hl.Parent=player.Character
 end
 
-local function SetupCharacterHighlight(player)
-	if player ~= LocalPlayer then
+local function SetupHighlight(player)
+	if player~=LocalPlayer then
 		player.CharacterAdded:Connect(function()
 			repeat task.wait() until player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 			ApplyHighlight(player)
@@ -229,63 +196,53 @@ local function SetupCharacterHighlight(player)
 	end
 end
 
-for _, player in ipairs(Players:GetPlayers()) do
-	SetupCharacterHighlight(player)
-	if player.Character then ApplyHighlight(player) end
+for _,p in ipairs(Players:GetPlayers()) do
+	SetupHighlight(p)
+	if p.Character then ApplyHighlight(p) end
 end
+Players.PlayerAdded:Connect(SetupHighlight)
 
-Players.PlayerAdded:Connect(function(player)
-	SetupCharacterHighlight(player)
-end)
-
+-- Aimbot
 local function GetClosestTarget()
-	local closest = nil
-	local shortestDist = FOVRadius
-	local viewportCenter = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player == LocalPlayer then goto continue_player end
-		local char = player.Character
-		local hrp = char and char:FindFirstChild("HumanoidRootPart")
-		if not hrp then goto continue_player end
-		if TeamCheck and player.Team == LocalPlayer.Team then goto continue_player end
-		local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-		if not onScreen then goto continue_player end
-		local dist = (Vector2.new(pos.X, pos.Y) - viewportCenter).Magnitude
-		if dist > shortestDist then goto continue_player end
+	local closest=nil
+	local shortest=FOVRadius
+	local center=Vector2.new(Camera.ViewportSize.X/2,Camera.ViewportSize.Y/2)
+	for _,p in ipairs(Players:GetPlayers()) do
+		if p==LocalPlayer then goto continue end
+		local hrp=p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+		if not hrp then goto continue end
+		if TeamCheck and p.Team==LocalPlayer.Team then goto continue end
+		local pos,onScreen=Camera:WorldToViewportPoint(hrp.Position)
+		if not onScreen then goto continue end
+		local dist=(Vector2.new(pos.X,pos.Y)-center).Magnitude
+		if dist>shortest then goto continue end
 		if WallCheck then
-			local origin = Camera.CFrame.Position
-			local direction = (hrp.Position - origin).Unit * 1000
-			local raycastParams = RaycastParams.new()
-			local filter = {}
-			if LocalPlayer.Character then table.insert(filter, LocalPlayer.Character) end
-			table.insert(filter, Camera)
-			raycastParams.FilterDescendantsInstances = filter
-			raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-			local result = workspace:Raycast(origin, direction, raycastParams)
-			if result and result.Instance and result.Instance:IsDescendantOf(player.Character) then
-				closest = player
-				shortestDist = dist
+			local origin=Camera.CFrame.Position
+			local dir=(hrp.Position-origin).Unit*1000
+			local ray=RaycastParams.new()
+			local filter={LocalPlayer.Character}
+			ray.FilterDescendantsInstances=filter
+			ray.FilterType=Enum.RaycastFilterType.Blacklist
+			local res=workspace:Raycast(origin,dir,ray)
+			if res and res.Instance and res.Instance:IsDescendantOf(p.Character) then
+				closest=p
+				shortest=dist
 			end
 		else
-			closest = player
-			shortestDist = dist
+			closest=p
+			shortest=dist
 		end
-		::continue_player::
+		::continue::
 	end
 	return closest
 end
 
 RunService.RenderStepped:Connect(function()
-	if FOVRainbow then
-		local hue = tick() % 5 / 5
-		UIStroke.Color = Color3.fromHSV(hue, 1, 1)
-	end
+	if FOVRainbow then UIStroke.Color=Color3.fromHSV(tick()%5/5,1,1) end
 	if AimbotEnabled then
-		local target = GetClosestTarget()
-		if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-			local head = target.Character.HumanoidRootPart.Position
-			local camPos = Camera.CFrame.Position
-			Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(camPos, head), 0.4)
+		local t=GetClosestTarget()
+		if t and t.Character and t.Character:FindFirstChild("HumanoidRootPart") then
+			Camera.CFrame=Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position,t.Character.HumanoidRootPart.Position),0.4)
 		end
 	end
 end)
