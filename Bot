@@ -1,4 +1,4 @@
--- Script completo modificado (cole no lugar do seu original)
+
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -7,7 +7,6 @@ local Camera = workspace.CurrentCamera
 local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
 
--- ====== CONFIGS ADICIONADAS ======
 local AimbotEnabled = false
 local TeamCheck = true
 local WallCheck = true
@@ -18,13 +17,11 @@ local HighlightColor = Color3.fromRGB(255, 0, 0)
 local FOVRainbow = false
 local FOVColor = Color3.fromRGB(0, 255, 0)
 
--- NOVAS VARIÁVEIS PARA AIM (expostas no UI)
-local AimPart = "Head"               -- parte alvo preferida (Head ou HumanoidRootPart)
-local AimSpeed = 0.90                -- 0.0 (lento) .. 1.0 (instantâneo). Slider no UI
-local PredictionMultiplier = 0.18    -- quanto da velocidade do alvo compensar. Slider no UI
-local targetUpdateInterval = 0.01    -- intervalo para atualizar o target (segundos)
+local AimPart = "Head"               
+local AimSpeed = 0.90               
+local PredictionMultiplier = 0.18    
+local targetUpdateInterval = 0.01   
 
--- ====== GUI FOV ======
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AimbotFOVGui"
 ScreenGui.IgnoreGuiInset = true
@@ -48,14 +45,12 @@ UIStroke.Color = FOVColor
 local UICorner = Instance.new("UICorner", FOVCircle)
 UICorner.CornerRadius = UDim.new(1, 0)
 
--- Atualizar posicionamento/size ao redimensionar
 Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-    -- garante centro exato
+
     FOVCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
     FOVCircle.Size = UDim2.new(0, FOVRadius * 2, 0, FOVRadius * 2)
 end)
 
--- ====== RAYFIELD WINDOW ======
 local Window = Rayfield:CreateWindow({
 	Name = "Aimbot FOV",
 	LoadingTitle = "Carregando...",
@@ -103,7 +98,7 @@ Tab:CreateSlider({
 	end
 })
 
--- ADICIONANDO SLIDER DE AimSpeed E PredictionMultiplier (pedido)
+
 Tab:CreateSlider({
 	Name = "AimSpeed (quão grudado)",
 	Range = {0, 100},
@@ -115,7 +110,7 @@ Tab:CreateSlider({
 })
 
 Tab:CreateSlider({
-	Name = "Predição (PredictionMultiplier)",
+	Name = "Predição (Velocidade do Alvo)",
 	Range = {0, 50},
 	Increment = 1,
 	CurrentValue = math.floor(PredictionMultiplier * 100),
@@ -350,7 +345,6 @@ OptimTab:CreateButton({
 	end
 })
 
--- ====== HIGHLIGHT / ESP ======
 local function ApplyHighlight(player)
 	if not player.Character then return end
 	local existing = player.Character:FindFirstChild("ESPHighlight")
@@ -386,14 +380,12 @@ Players.PlayerAdded:Connect(function(player)
 end)
 
 Players.PlayerRemoving:Connect(function(plr)
-	-- limpando highlight do jogador que saiu (boa prática)
 	if plr.Character then
 		local h = plr.Character:FindFirstChild("ESPHighlight")
 		if h then h:Destroy() end
 	end
 end)
 
--- ====== TARGETING ======
 local function GetClosestTarget()
 	local closest = nil
 	local shortestDist = FOVRadius
@@ -402,11 +394,11 @@ local function GetClosestTarget()
 	for i = 1, #players do
 		local player = players[i]
 		if player ~= LocalPlayer and player.Character then
-			-- preferir AimPart (Head) senão HumanoidRootPart
+			
 			local part = player.Character:FindFirstChild(AimPart) or player.Character:FindFirstChild("HumanoidRootPart")
 			if part and part:IsA("BasePart") then
 				if TeamCheck and player.Team == LocalPlayer.Team then
-					-- skip
+					
 				else
 					local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
 					if onScreen then
@@ -436,11 +428,10 @@ local function GetClosestTarget()
 	return closest
 end
 
--- ====== RENDER LOOP COM PREDIÇÃO E AIM SPEED ======
 local targetCache, lastTargetUpdate = nil, 0
 
 RunService.RenderStepped:Connect(function()
-	-- FOV rainbow
+
 	if FOVRainbow then
 		local hue = tick() % 5 / 5
 		local color = Color3.fromHSV(hue, 1, 1)
@@ -465,7 +456,7 @@ RunService.RenderStepped:Connect(function()
 			local predictedPos = aimPart.Position + vel * PredictionMultiplier
 			local camPos = Camera.CFrame.Position
 			local newCF = CFrame.new(camPos, predictedPos)
-			-- aplicar AimSpeed (quanto maior, mais "gruda")
+
 			Camera.CFrame = Camera.CFrame:Lerp(newCF, math.clamp(AimSpeed, 0, 1))
 		end
 	end
