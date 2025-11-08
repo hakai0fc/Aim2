@@ -1,5 +1,4 @@
-
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/hakai0fc/SiriusSoftWareLtd/refs/heads/main/RayfieldSource'))()
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
@@ -26,7 +25,6 @@ local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AimbotFOVGui"
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.ResetOnSpawn = false
--- parentar ao PlayerGui (mais robusto que CoreGui)
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local FOVCircle = Instance.new("Frame")
@@ -406,12 +404,21 @@ local function GetClosestTarget()
 						if dist <= shortestDist then
 							if WallCheck then
 								local origin = Camera.CFrame.Position
-								local direction = (part.Position - origin)
+								local direction = (part.Position - origin).Unit * 1000
 								local raycastParams = RaycastParams.new()
 								raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
 								raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+								raycastParams.IgnoreWater = true
+								
 								local result = workspace:Raycast(origin, direction, raycastParams)
-								if result and result.Instance and result.Instance:IsDescendantOf(player.Character) then
+								if result then
+									local hitPos = result.Position
+									local hitDist = (hitPos - part.Position).Magnitude
+									if hitDist <= 5 or (result.Instance and result.Instance:IsDescendantOf(player.Character)) then
+										closest = {player = player, part = part}
+										shortestDist = dist
+									end
+								else
 									closest = {player = player, part = part}
 									shortestDist = dist
 								end
