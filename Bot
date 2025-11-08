@@ -1,3 +1,4 @@
+-- Script completo modificado (cole no lugar do seu original)
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -5,6 +6,8 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
+
+-- ====== CONFIGS ADICIONADAS ======
 local AimbotEnabled = false
 local TeamCheck = true
 local WallCheck = true
@@ -14,9 +17,21 @@ local ESPTeamCheck = true
 local HighlightColor = Color3.fromRGB(255, 0, 0)
 local FOVRainbow = false
 local FOVColor = Color3.fromRGB(0, 255, 0)
-local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+
+-- NOVAS VARIÁVEIS PARA AIM (expostas no UI)
+local AimPart = "Head"               -- parte alvo preferida (Head ou HumanoidRootPart)
+local AimSpeed = 0.90                -- 0.0 (lento) .. 1.0 (instantâneo). Slider no UI
+local PredictionMultiplier = 0.18    -- quanto da velocidade do alvo compensar. Slider no UI
+local targetUpdateInterval = 0.01    -- intervalo para atualizar o target (segundos)
+
+-- ====== GUI FOV ======
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AimbotFOVGui"
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.ResetOnSpawn = false
+-- parentar ao PlayerGui (mais robusto que CoreGui)
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
 local FOVCircle = Instance.new("Frame")
 FOVCircle.Name = "FOV"
 FOVCircle.Parent = ScreenGui
@@ -24,12 +39,23 @@ FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
 FOVCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
 FOVCircle.Size = UDim2.new(0, FOVRadius * 2, 0, FOVRadius * 2)
 FOVCircle.BackgroundTransparency = 1
+FOVCircle.Visible = false
+
 local UIStroke = Instance.new("UIStroke", FOVCircle)
 UIStroke.Thickness = 2
 UIStroke.Color = FOVColor
+
 local UICorner = Instance.new("UICorner", FOVCircle)
 UICorner.CornerRadius = UDim.new(1, 0)
 
+-- Atualizar posicionamento/size ao redimensionar
+Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+    -- garante centro exato
+    FOVCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
+    FOVCircle.Size = UDim2.new(0, FOVRadius * 2, 0, FOVRadius * 2)
+end)
+
+-- ====== RAYFIELD WINDOW ======
 local Window = Rayfield:CreateWindow({
 	Name = "Aimbot FOV",
 	LoadingTitle = "Carregando...",
@@ -69,11 +95,32 @@ Tab:CreateSlider({
 	Name = "Tamanho do FOV",
 	Range = {0, 300},
 	Increment = 1,
-	CurrentValue = 100,
+	CurrentValue = FOVRadius,
 	Callback = function(value)
 		FOVRadius = value
 		FOVCircle.Size = UDim2.new(0, value * 2, 0, value * 2)
-		FOVCircle.Visible = value > 0
+		FOVCircle.Visible = value > 0 and AimbotEnabled
+	end
+})
+
+-- ADICIONANDO SLIDER DE AimSpeed E PredictionMultiplier (pedido)
+Tab:CreateSlider({
+	Name = "AimSpeed (quão grudado)",
+	Range = {0, 100},
+	Increment = 1,
+	CurrentValue = math.floor(AimSpeed * 100),
+	Callback = function(value)
+		AimSpeed = math.clamp(value / 100, 0, 1)
+	end
+})
+
+Tab:CreateSlider({
+	Name = "Predição (PredictionMultiplier)",
+	Range = {0, 50},
+	Increment = 1,
+	CurrentValue = math.floor(PredictionMultiplier * 100),
+	Callback = function(value)
+		PredictionMultiplier = math.clamp(value / 100, 0, 0.5)
 	end
 })
 
@@ -185,7 +232,7 @@ VisualTab:CreateToggle({
 			PvPSky.SkyboxRt = "rbxassetid://1022207886"
 			PvPSky.SkyboxUp = "rbxassetid://1022207958"
 			PvPSky.Parent = Lighting
-			StarsGui = Instance.new("ScreenGui", game.CoreGui)
+			StarsGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
 			StarsGui.Name = "StarsGui"
 			StarsGui.IgnoreGuiInset = true
 			StarsGui.ResetOnSpawn = false
@@ -243,11 +290,15 @@ OptimTab:CreateToggle({
 	Callback = function(value)
 		FPSUnlockerEnabled = value
 		if value then
-			setfpscap(1000)
-			Rayfield:Notify({Title = "FPS Desbloqueado", Content = "Limite de FPS removido.", Duration = 4})
+			if type(setfpscap) == "function" then
+				setfpscap(1000)
+			end
+			Rayfield:Notify({Title = "FPS Desbloqueado", Content = "Limite de FPS removido (se suportado).", Duration = 4})
 		else
-			setfpscap(60)
-			Rayfield:Notify({Title = "FPS Restaurado", Content = "Limite de FPS ajustado para 60.", Duration = 4})
+			if type(setfpscap) == "function" then
+				setfpscap(60)
+			end
+			Rayfield:Notify({Title = "FPS Restaurado", Content = "Limite de FPS ajustado para 60 (se suportado).", Duration = 4})
 		end
 	end
 })
@@ -299,6 +350,7 @@ OptimTab:CreateButton({
 	end
 })
 
+-- ====== HIGHLIGHT / ESP ======
 local function ApplyHighlight(player)
 	if not player.Character then return end
 	local existing = player.Character:FindFirstChild("ESPHighlight")
@@ -333,31 +385,49 @@ Players.PlayerAdded:Connect(function(player)
 	SetupCharacterHighlight(player)
 end)
 
+Players.PlayerRemoving:Connect(function(plr)
+	-- limpando highlight do jogador que saiu (boa prática)
+	if plr.Character then
+		local h = plr.Character:FindFirstChild("ESPHighlight")
+		if h then h:Destroy() end
+	end
+end)
+
+-- ====== TARGETING ======
 local function GetClosestTarget()
 	local closest = nil
 	local shortestDist = FOVRadius
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			if TeamCheck and player.Team == LocalPlayer.Team then continue end
-			local pos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
-			if onScreen then
-				local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-				local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-				if dist <= shortestDist then
-					if WallCheck then
-						local origin = Camera.CFrame.Position
-						local direction = (player.Character.HumanoidRootPart.Position - origin).Unit * 1000
-						local raycastParams = RaycastParams.new()
-						raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
-						raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-						local result = workspace:Raycast(origin, direction, raycastParams)
-						if result and result.Instance:IsDescendantOf(player.Character) then
-							closest = player
-							shortestDist = dist
+	local players = Players:GetPlayers()
+	local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+	for i = 1, #players do
+		local player = players[i]
+		if player ~= LocalPlayer and player.Character then
+			-- preferir AimPart (Head) senão HumanoidRootPart
+			local part = player.Character:FindFirstChild(AimPart) or player.Character:FindFirstChild("HumanoidRootPart")
+			if part and part:IsA("BasePart") then
+				if TeamCheck and player.Team == LocalPlayer.Team then
+					-- skip
+				else
+					local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+					if onScreen then
+						local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+						if dist <= shortestDist then
+							if WallCheck then
+								local origin = Camera.CFrame.Position
+								local direction = (part.Position - origin)
+								local raycastParams = RaycastParams.new()
+								raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+								raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+								local result = workspace:Raycast(origin, direction, raycastParams)
+								if result and result.Instance and result.Instance:IsDescendantOf(player.Character) then
+									closest = {player = player, part = part}
+									shortestDist = dist
+								end
+							else
+								closest = {player = player, part = part}
+								shortestDist = dist
+							end
 						end
-					else
-						closest = player
-						shortestDist = dist
 					end
 				end
 			end
@@ -366,19 +436,37 @@ local function GetClosestTarget()
 	return closest
 end
 
+-- ====== RENDER LOOP COM PREDIÇÃO E AIM SPEED ======
+local targetCache, lastTargetUpdate = nil, 0
+
 RunService.RenderStepped:Connect(function()
+	-- FOV rainbow
 	if FOVRainbow then
 		local hue = tick() % 5 / 5
 		local color = Color3.fromHSV(hue, 1, 1)
 		UIStroke.Color = color
+	else
+		UIStroke.Color = FOVColor
 	end
+
 	if AimbotEnabled then
-		local target = GetClosestTarget()
-		if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-			local head = target.Character.HumanoidRootPart.Position
+		if tick() - lastTargetUpdate > targetUpdateInterval then
+			targetCache = GetClosestTarget()
+			lastTargetUpdate = tick()
+		end
+
+		local t = targetCache
+		if t and t.player and t.part and t.part.Parent then
+			local aimPart = t.part
+			local vel = Vector3.new(0,0,0)
+			if aimPart and aimPart:IsA("BasePart") then
+				vel = aimPart.Velocity or Vector3.new(0,0,0)
+			end
+			local predictedPos = aimPart.Position + vel * PredictionMultiplier
 			local camPos = Camera.CFrame.Position
-			local newCF = CFrame.new(camPos, head)
-			Camera.CFrame = Camera.CFrame:Lerp(newCF, 0.4)
+			local newCF = CFrame.new(camPos, predictedPos)
+			-- aplicar AimSpeed (quanto maior, mais "gruda")
+			Camera.CFrame = Camera.CFrame:Lerp(newCF, math.clamp(AimSpeed, 0, 1))
 		end
 	end
 end)
