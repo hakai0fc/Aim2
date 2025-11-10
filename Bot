@@ -15,11 +15,10 @@ local ESPTeamCheck = true
 local HighlightColor = Color3.fromRGB(255, 0, 0)
 local FOVRainbow = false
 local FOVColor = Color3.fromRGB(0, 255, 0)
-
-local AimPart = "Head"               
-local AimSpeed = 0.96              
+local AimPart = "Head"
+local AimSpeed = 0.96
 local PredictionMultiplier = 0.16
-local targetUpdateInterval = 0.001   
+local targetUpdateInterval = 0.001
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AimbotFOVGui"
@@ -44,9 +43,8 @@ local UICorner = Instance.new("UICorner", FOVCircle)
 UICorner.CornerRadius = UDim.new(1, 0)
 
 Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-
-    FOVCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
-    FOVCircle.Size = UDim2.new(0, FOVRadius * 2, 0, FOVRadius * 2)
+	FOVCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
+	FOVCircle.Size = UDim2.new(0, FOVRadius * 2, 0, FOVRadius * 2)
 end)
 
 local Window = Rayfield:CreateWindow({
@@ -62,6 +60,7 @@ local Window = Rayfield:CreateWindow({
 })
 
 local Tab = Window:CreateTab("Principal", 4483362458)
+
 Tab:CreateToggle({
 	Name = "Ativar Aimbot",
 	CurrentValue = false,
@@ -70,6 +69,7 @@ Tab:CreateToggle({
 		FOVCircle.Visible = value
 	end
 })
+
 Tab:CreateToggle({
 	Name = "Verificar Times",
 	CurrentValue = true,
@@ -77,6 +77,7 @@ Tab:CreateToggle({
 		TeamCheck = value
 	end
 })
+
 Tab:CreateToggle({
 	Name = "Verificar Paredes",
 	CurrentValue = true,
@@ -84,6 +85,7 @@ Tab:CreateToggle({
 		WallCheck = value
 	end
 })
+
 Tab:CreateSlider({
 	Name = "Tamanho do FOV",
 	Range = {0, 300},
@@ -95,7 +97,6 @@ Tab:CreateSlider({
 		FOVCircle.Visible = value > 0 and AimbotEnabled
 	end
 })
-
 
 Tab:CreateSlider({
 	Name = "AimSpeed (quão grudado)",
@@ -116,11 +117,12 @@ Tab:CreateSlider({
 		PredictionMultiplier = math.clamp(value / 100, 0, 0.5)
 	end
 })
+
 local ESPTab = Window:CreateTab("ESP", 4483362458)
 
 local DefaultTeamColors = {}
 for _, team in ipairs(game:GetService("Teams"):GetTeams()) do
-    DefaultTeamColors[team.Name] = team.TeamColor.Color
+	DefaultTeamColors[team.Name] = team.TeamColor.Color
 end
 
 ESPTab:CreateToggle({
@@ -145,6 +147,7 @@ ESPTab:CreateToggle({
 		end
 	end
 })
+
 ESPTab:CreateToggle({
 	Name = "Team Check ESP",
 	CurrentValue = true,
@@ -160,12 +163,13 @@ ESPTab:CreateToggle({
 		end
 	end
 })
+
 ESPTab:CreateColorPicker({
 	Name = "Cor do Destaque",
-	Color = Color3.fromRGB(255, 0, 0), 
+	Color = Color3.fromRGB(255, 0, 0),
 	Callback = function(value)
 		HighlightColor = value
-		if not ESPTeamCheck then 
+		if not ESPTeamCheck then
 			for _, player in ipairs(Players:GetPlayers()) do
 				local highlight = player.Character and player.Character:FindFirstChild("ESPHighlight")
 				if highlight then
@@ -176,7 +180,9 @@ ESPTab:CreateColorPicker({
 		end
 	end
 })
+
 local VisualTab = Window:CreateTab("Visual", 4483362458)
+
 VisualTab:CreateToggle({
 	Name = "FOV Arco-Íris",
 	CurrentValue = false,
@@ -184,6 +190,7 @@ VisualTab:CreateToggle({
 		FOVRainbow = value
 	end
 })
+
 VisualTab:CreateColorPicker({
 	Name = "Cor do FOV",
 	Color = FOVColor,
@@ -195,81 +202,10 @@ VisualTab:CreateColorPicker({
 	end
 })
 
-VisualTab:CreateToggle({
-	Name = "Efeito Slow Motion PvP",
-	CurrentValue = false,
-	Callback = function(enabled)
-		if enabled then
-			local tween = TweenService:Create(game:GetService("Lighting"), TweenInfo.new(0.5), {ClockTime = 0.25})
-			tween:Play()
-			workspace.Gravity = 100
-		else
-			local tween = TweenService:Create(game:GetService("Lighting"), TweenInfo.new(0.5), {ClockTime = 1})
-			tween:Play()
-			workspace.Gravity = 196.2
-		end
-	end
-})
 local Lighting = game:GetService("Lighting")
-local StarsGui
-local OriginalAmbient = Lighting.Ambient
-local OriginalOutdoorAmbient = Lighting.OutdoorAmbient
-local OriginalBrightness = Lighting.Brightness
-local OriginalClockTime = Lighting.ClockTime
-local OriginalSky = Lighting:FindFirstChildOfClass("Sky")
-VisualTab:CreateToggle({
-	Name = "Modo Céu PvP Suave",
-	CurrentValue = false,
-	Callback = function(value)
-		if value then
-			Lighting.Ambient = Color3.fromRGB(120, 130, 140)
-			Lighting.OutdoorAmbient = Color3.fromRGB(90, 100, 110)
-			Lighting.Brightness = 1.5
-			Lighting.ClockTime = 18.5
-			if OriginalSky then OriginalSky.Enabled = false end
-			local PvPSky = Instance.new("Sky")
-			PvPSky.Name = "PvPSky"
-			PvPSky.SkyboxBk = "rbxassetid://1022207611"
-			PvPSky.SkyboxDn = "rbxassetid://1022207683"
-			PvPSky.SkyboxFt = "rbxassetid://1022207746"
-			PvPSky.SkyboxLf = "rbxassetid://1022207814"
-			PvPSky.SkyboxRt = "rbxassetid://1022207886"
-			PvPSky.SkyboxUp = "rbxassetid://1022207958"
-			PvPSky.Parent = Lighting
-			StarsGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-			StarsGui.Name = "StarsGui"
-			StarsGui.IgnoreGuiInset = true
-			StarsGui.ResetOnSpawn = false
-			for i = 1, 50 do
-				local star = Instance.new("Frame")
-				star.Size = UDim2.new(0, 2, 0, 2)
-				star.Position = UDim2.new(math.random(), 0, math.random(), 0)
-				star.BackgroundColor3 = Color3.new(1, 1, 1)
-				star.BackgroundTransparency = 0.7
-				star.BorderSizePixel = 0
-				star.AnchorPoint = Vector2.new(0.5, 0.5)
-				star.Parent = StarsGui
-				coroutine.wrap(function()
-					while StarsGui and StarsGui.Parent do
-						star.BackgroundTransparency = 0.5 + math.sin(tick() * math.random(1,3)) * 0.4
-						wait(0.1)
-					end
-				end)()
-			end
-		else
-			Lighting.Ambient = OriginalAmbient
-			Lighting.OutdoorAmbient = OriginalOutdoorAmbient
-			Lighting.Brightness = OriginalBrightness
-			Lighting.ClockTime = OriginalClockTime
-			local PvPSky = Lighting:FindFirstChild("PvPSky")
-			if PvPSky then PvPSky:Destroy() end
-			if OriginalSky then OriginalSky.Enabled = true end
-			if StarsGui then StarsGui:Destroy() StarsGui = nil end
-		end
-	end
-})
 
 local OptimTab = Window:CreateTab("Otimização", 4483362458)
+
 OptimTab:CreateButton({
 	Name = "Otimizar FPS (Melhor Desempenho)",
 	Callback = function()
@@ -336,7 +272,6 @@ OptimTab:CreateButton({
 OptimTab:CreateButton({
 	Name = "Skybox PvP (Estilo Brilhante)",
 	Callback = function()
-		local Lighting = game:GetService("Lighting")
 		for _, v in ipairs(Lighting:GetChildren()) do
 			if v:IsA("Sky") then v:Destroy() end
 		end
@@ -358,7 +293,6 @@ local function ApplyHighlight(player)
 	if not player.Character then return end
 	local existing = player.Character:FindFirstChild("ESPHighlight")
 	if existing then existing:Destroy() end
-
 	local highlight = Instance.new("Highlight")
 	highlight.Name = "ESPHighlight"
 	highlight.FillTransparency = 1
@@ -389,63 +323,74 @@ Players.PlayerAdded:Connect(function(player)
 	SetupCharacterHighlight(player)
 end)
 
+local CloseDistanceThreshold = 5
+
 local function GetClosestTarget()
-    local closest = nil
-    local shortestDist = math.huge 
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            if TeamCheck and player.Team == LocalPlayer.Team then continue end
-
-            local pos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
-            if onScreen then
-                local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-
-                if dist <= FOVRadius then
-                    if WallCheck then
-                        local origin = Camera.CFrame.Position
-                        local direction = (player.Character.HumanoidRootPart.Position - origin).Unit * 10000 
-                        local raycastParams = RaycastParams.new()
-                        raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
-                        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-
-                        local result = workspace:Raycast(origin, direction, raycastParams)
-                        if result and result.Instance:IsDescendantOf(player.Character) then
-                            if dist < shortestDist then
-                                closest = player
-                                shortestDist = dist
-                            end
-                        end
-                    else
-                        if dist < shortestDist then
-                            closest = player
-                            shortestDist = dist
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    return closest
+	local closest = nil
+	local shortestDist = math.huge
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character then
+			local part = player.Character:FindFirstChild(AimPart)
+			if not part then continue end
+			if TeamCheck and player.Team == LocalPlayer.Team then continue end
+			local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+			local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+			local screenPos = Vector2.new(pos.X, pos.Y)
+			local dist = (screenPos - center).Magnitude
+			local headRadiusOnScreen = 0
+			do
+				local edgeWorldPos = part.Position + (part.CFrame.RightVector * (math.max(part.Size.X, part.Size.Y, part.Size.Z) / 2))
+				local edgePos = Camera:WorldToViewportPoint(edgeWorldPos)
+				headRadiusOnScreen = (Vector2.new(edgePos.X, edgePos.Y) - screenPos).Magnitude
+			end
+			if onScreen and (dist <= FOVRadius or headRadiusOnScreen >= FOVRadius) or (not onScreen and dist <= FOVRadius) then
+				if WallCheck then
+					local origin = Camera.CFrame.Position
+					local direction = (part.Position - origin).Unit * 10000
+					local raycastParams = RaycastParams.new()
+					raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+					raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+					local result = workspace:Raycast(origin, direction, raycastParams)
+					if result and result.Instance and result.Instance:IsDescendantOf(player.Character) then
+						if dist < shortestDist then
+							closest = player
+							shortestDist = dist
+						end
+					end
+				else
+					if dist < shortestDist then
+						closest = player
+						shortestDist = dist
+					end
+				end
+			end
+		end
+	end
+	return closest
 end
 
 RunService.RenderStepped:Connect(function()
-    if FOVRainbow and UIStroke then
-        local hue = tick() % 5 / 5
-        UIStroke.Color = Color3.fromHSV(hue, 1, 1)
-    end
-
-    if AimbotEnabled then
-        local target = GetClosestTarget()
-        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-            local headPos = target.Character.HumanoidRootPart.Position
-            local camPos = Camera.CFrame.Position
-            local distance = (headPos - camPos).Magnitude
-            local lerpAmount = math.clamp(AimSpeed, 0, 1) -- usa AimSpeed do usuário
-            local newCF = CFrame.new(camPos, headPos + target.Character.HumanoidRootPart.Velocity * PredictionMultiplier)
-            Camera.CFrame = Camera.CFrame:Lerp(newCF, lerpAmount)
-        end
-    end
+	if FOVRainbow and UIStroke then
+		local hue = tick() % 5 / 5
+		UIStroke.Color = Color3.fromHSV(hue, 1, 1)
+	end
+	if AimbotEnabled then
+		local target = GetClosestTarget()
+		if target and target.Character then
+			local part = target.Character:FindFirstChild(AimPart)
+			if part then
+				local headPos = part.Position
+				local camPos = Camera.CFrame.Position
+				local distance = (headPos - camPos).Magnitude
+				local lerpAmount = math.clamp(AimSpeed, 0, 1)
+				local predicted = headPos + (part.Velocity or Vector3.new()) * PredictionMultiplier
+				local newCF = CFrame.new(camPos, predicted)
+				if distance <= CloseDistanceThreshold then
+					Camera.CFrame = Camera.CFrame:Lerp(newCF, 1)
+				else
+					Camera.CFrame = Camera.CFrame:Lerp(newCF, lerpAmount)
+				end
+			end
+		end
+	end
 end)
