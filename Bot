@@ -16,10 +16,11 @@ local HighlightColor = Color3.fromRGB(255, 0, 0)
 local FOVRainbow = false
 local FOVColor = Color3.fromRGB(0, 255, 0)
 
-local AimPart = "Head"               
-local AimSpeed = 0.90               
-local PredictionMultiplier = 0.18    
-local targetUpdateInterval = 0.01   
+local AimPart = "Head"
+local AimSpeed = 0.90
+local PredictionMultiplier = 0.18
+local targetUpdateInterval = 0.01
+local AutoLock = false
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AimbotFOVGui"
@@ -44,7 +45,6 @@ local UICorner = Instance.new("UICorner", FOVCircle)
 UICorner.CornerRadius = UDim.new(1, 0)
 
 Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-
     FOVCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
     FOVCircle.Size = UDim2.new(0, FOVRadius * 2, 0, FOVRadius * 2)
 end)
@@ -96,7 +96,6 @@ Tab:CreateSlider({
 	end
 })
 
-
 Tab:CreateSlider({
 	Name = "AimSpeed (quão grudado)",
 	Range = {0, 100},
@@ -114,6 +113,14 @@ Tab:CreateSlider({
 	CurrentValue = math.floor(PredictionMultiplier * 100),
 	Callback = function(value)
 		PredictionMultiplier = math.clamp(value / 100, 0, 0.5)
+	end
+})
+
+Tab:CreateToggle({
+	Name = "Auto Lock (Grudar Totalmente)",
+	CurrentValue = false,
+	Callback = function(value)
+		AutoLock = value
 	end
 })
 
@@ -392,11 +399,9 @@ local function GetClosestTarget()
 	for i = 1, #players do
 		local player = players[i]
 		if player ~= LocalPlayer and player.Character then
-			
 			local part = player.Character:FindFirstChild(AimPart) or player.Character:FindFirstChild("HumanoidRootPart")
 			if part and part:IsA("BasePart") then
 				if TeamCheck and player.Team == LocalPlayer.Team then
-					
 				else
 					local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
 					if onScreen then
@@ -409,7 +414,6 @@ local function GetClosestTarget()
 								raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
 								raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
 								raycastParams.IgnoreWater = true
-								
 								local result = workspace:Raycast(origin, direction, raycastParams)
 								if result then
 									local hitPos = result.Position
@@ -438,11 +442,9 @@ end
 local targetCache, lastTargetUpdate = nil, 0
 
 RunService.RenderStepped:Connect(function()
-
 	if FOVRainbow then
 		local hue = tick() % 5 / 5
-		local color = Color3.fromHSV(hue, 1, 1)
-		UIStroke.Color = color
+		UIStroke.Color = Color3.fromHSV(hue, 1, 1)
 	else
 		UIStroke.Color = FOVColor
 	end
@@ -456,15 +458,20 @@ RunService.RenderStepped:Connect(function()
 		local t = targetCache
 		if t and t.player and t.part and t.part.Parent then
 			local aimPart = t.part
-			local vel = Vector3.new(0,0,0)
-			if aimPart and aimPart:IsA("BasePart") then
-				vel = aimPart.Velocity or Vector3.new(0,0,0)
-			end
-			local predictedPos = aimPart.Position + vel * PredictionMultiplier
+			local vel = aimPart:IsA("BasePart") and aimPart.Velocity or Vector3.new(0, 0, 0)
+			local distance = (Camera.CFrame.Position - aimPart.Position).Magnitude
+			local pred = vel * (PredictionMultiplier * math.clamp(distance / 50, 0.1, 2))
+			local predictedPos = aimPart.Position + pred
 			local camPos = Camera.CFrame.Position
-			local newCF = CFrame.new(camPos, predictedPos)
 
-			Camera.CFrame = Camera.CFrame:Lerp(newCF, math.clamp(AimSpeed, 0, 1))
+			if AutoLock then
+				Camera.CFrame = CFrame.new(camPos, predictedPos)
+			else
+				local dynamicSpeed = math.clamp(1 - (distance / 100), 0.25, 1)
+				local lerpAlpha = math.clamp(AimSpeed * dynamicSpeed, 0.05, 1)
+				local newCF = CFrame.new(camPos, predictedPos)
+				Camera.CFrame = Camera.CFrame:Lerp(newCF, lerpAlpha)
+			end
 		end
 	end
 end)
