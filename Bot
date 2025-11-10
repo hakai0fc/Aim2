@@ -323,7 +323,7 @@ Players.PlayerAdded:Connect(function(player)
 	SetupCharacterHighlight(player)
 end)
 
-local CloseDistanceThreshold = 5
+local CloseDistanceThreshold = 4
 
 local function GetClosestTarget()
 	local closest = nil
@@ -333,25 +333,50 @@ local function GetClosestTarget()
 			local part = player.Character:FindFirstChild(AimPart)
 			if not part then continue end
 			if TeamCheck and player.Team == LocalPlayer.Team then continue end
+
 			local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
 			local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 			local screenPos = Vector2.new(pos.X, pos.Y)
 			local dist = (screenPos - center).Magnitude
+
 			local headRadiusOnScreen = 0
 			do
 				local edgeWorldPos = part.Position + (part.CFrame.RightVector * (math.max(part.Size.X, part.Size.Y, part.Size.Z) / 2))
 				local edgePos = Camera:WorldToViewportPoint(edgeWorldPos)
 				headRadiusOnScreen = (Vector2.new(edgePos.X, edgePos.Y) - screenPos).Magnitude
 			end
+
 			if onScreen and (dist <= FOVRadius or headRadiusOnScreen >= FOVRadius) or (not onScreen and dist <= FOVRadius) then
 				if WallCheck then
 					local origin = Camera.CFrame.Position
 					local direction = (part.Position - origin).Unit * 10000
+
 					local raycastParams = RaycastParams.new()
 					raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
 					raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
 					local result = workspace:Raycast(origin, direction, raycastParams)
-					if result and result.Instance and result.Instance:IsDescendantOf(player.Character) then
+					if result then
+						local hit = result.Instance
+						local ignore = false
+
+						local ignoredMaterials = {
+							[Enum.Material.Air] = true,
+							[Enum.Material.Grass] = true,
+							[Enum.Material.Wood] = true
+						}
+
+						if hit.Transparency > 0.8 or not hit.CanCollide or ignoredMaterials[hit.Material] then
+							ignore = true
+						end
+						if hit:IsDescendantOf(player.Character) or ignore then
+							if dist < shortestDist then
+								closest = player
+								shortestDist = dist
+							end
+						end
+					else
+						-- Nenhum obstáculo — pode mirar
 						if dist < shortestDist then
 							closest = player
 							shortestDist = dist
