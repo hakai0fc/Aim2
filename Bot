@@ -146,7 +146,7 @@ ESPTab:CreateToggle({
 	end
 })
 ESPTab:CreateToggle({
-	Name = "Verificar Times no Destaque",
+	Name = "Team Check ESP",
 	CurrentValue = true,
 	Callback = function(value)
 		ESPTeamCheck = value
@@ -154,13 +154,6 @@ ESPTab:CreateToggle({
 			if player ~= LocalPlayer then
 				local highlight = player.Character and player.Character:FindFirstChild("ESPHighlight")
 				if highlight then
-					if value then
-						highlight.OutlineColor = player.Team.TeamColor.Color
-						highlight.FillColor = player.Team.TeamColor.Color
-					else
-						highlight.OutlineColor = HighlightColor
-						highlight.FillColor = HighlightColor
-					end
 					highlight.Enabled = ESPEnabled and (not value or player.Team ~= LocalPlayer.Team)
 				end
 			end
@@ -365,6 +358,7 @@ local function ApplyHighlight(player)
 	if not player.Character then return end
 	local existing = player.Character:FindFirstChild("ESPHighlight")
 	if existing then existing:Destroy() end
+
 	local highlight = Instance.new("Highlight")
 	highlight.Name = "ESPHighlight"
 	highlight.FillTransparency = 1
@@ -395,85 +389,63 @@ Players.PlayerAdded:Connect(function(player)
 	SetupCharacterHighlight(player)
 end)
 
-Players.PlayerRemoving:Connect(function(plr)
-	if plr.Character then
-		local h = plr.Character:FindFirstChild("ESPHighlight")
-		if h then h:Destroy() end
-	end
-end)
-
-local MAX_DISTANCE = 1500           
-local MIN_DISTANCE = 1            
-local targetUpdateInterval = 0.005   
-local targetCache, lastTargetUpdate = nil, 0
-
 local function GetClosestTarget()
-	local closest = nil
-	local shortestDist = MAX_DISTANCE
-	local players = Players:GetPlayers()
-	local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    local closest = nil
+    local shortestDist = math.huge 
 
-	for i = 1, #players do
-		local player = players[i]
-		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			local part = player.Character:FindFirstChild(AimPart) or player.Character:FindFirstChild("HumanoidRootPart")
-			if part and part:IsA("BasePart") then
-				if TeamCheck and player.Team == LocalPlayer.Team then
-					continue
-				end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            if TeamCheck and player.Team == LocalPlayer.Team then continue end
 
-				local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-				if not onScreen then continue end
+            local pos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+            if onScreen then
+                local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
 
-				local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-				if dist > shortestDist or dist < MIN_DISTANCE then continue end
+                if dist <= FOVRadius then
+                    if WallCheck then
+                        local origin = Camera.CFrame.Position
+                        local direction = (player.Character.HumanoidRootPart.Position - origin).Unit * 10000 
+                        local raycastParams = RaycastParams.new()
+                        raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+                        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
 
-				if WallCheck then
-					local origin = Camera.CFrame.Position
-					local direction = (part.Position - origin).Unit * 5000
-					local raycastParams = RaycastParams.new()
-					raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
-					raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-					raycastParams.IgnoreWater = true
+                        local result = workspace:Raycast(origin, direction, raycastParams)
+                        if result and result.Instance:IsDescendantOf(player.Character) then
+                            if dist < shortestDist then
+                                closest = player
+                                shortestDist = dist
+                            end
+                        end
+                    else
+                        if dist < shortestDist then
+                            closest = player
+                            shortestDist = dist
+                        end
+                    end
+                end
+            end
+        end
+    end
 
-					local result = workspace:Raycast(origin, direction, raycastParams)
-					if result and not result.Instance:IsDescendantOf(player.Character) then
-						continue
-					end
-				end
-
-				closest = {player = player, part = part}
-				shortestDist = dist
-			end
-		end
-	end
-
-	return closest
+    return closest
 end
 
 RunService.RenderStepped:Connect(function()
-	if AimbotEnabled then
-		if tick() - lastTargetUpdate > targetUpdateInterval then
-			targetCache = GetClosestTarget()
-			lastTargetUpdate = tick()
-		end
+    if FOVRainbow and UIStroke then
+        local hue = tick() % 5 / 5
+        UIStroke.Color = Color3.fromHSV(hue, 1, 1)
+    end
 
-		local t = targetCache
-		if t and t.player and t.part and t.part.Parent then
-			local aimPart = t.part
-			local vel = aimPart.Velocity or Vector3.new(0,0,0)
-			local predictedPos = aimPart.Position + vel * PredictionMultiplier
-			local camPos = Camera.CFrame.Position
-			local newCF = CFrame.new(camPos, predictedPos)
-			Camera.CFrame = Camera.CFrame:Lerp(newCF, math.clamp(AimSpeed, 0, 1))
-		end
-	end
-
-	if FOVRainbow then
-		local hue = tick() % 5 / 5
-		local color = Color3.fromHSV(hue, 1, 1)
-		UIStroke.Color = color
-	else
-		UIStroke.Color = FOVColor
-	end
+    if AimbotEnabled then
+        local target = GetClosestTarget()
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            local headPos = target.Character.HumanoidRootPart.Position
+            local camPos = Camera.CFrame.Position
+            local distance = (headPos - camPos).Magnitude
+            local lerpAmount = math.clamp(AimSpeed, 0, 1) -- usa AimSpeed do usuário
+            local newCF = CFrame.new(camPos, headPos + target.Character.HumanoidRootPart.Velocity * PredictionMultiplier)
+            Camera.CFrame = Camera.CFrame:Lerp(newCF, lerpAmount)
+        end
+    end
 end)
