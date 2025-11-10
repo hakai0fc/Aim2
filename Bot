@@ -9,7 +9,7 @@ local TweenService = game:GetService("TweenService")
 local AimbotEnabled = false
 local TeamCheck = true
 local WallCheck = true
-local FOVRadius = 100
+local FOVRadius = 3000
 local ESPEnabled = false
 local ESPTeamCheck = true
 local HighlightColor = Color3.fromRGB(255, 0, 0)
@@ -19,13 +19,13 @@ local FOVColor = Color3.fromRGB(0, 255, 0)
 local AimPart = "Head"               
 local AimSpeed = 0.96               
 local PredictionMultiplier = 0.16    
-local targetUpdateInterval = 0.001   
+local targetUpdateInterval = 0.005  
 
 local AutoLockEnabled = false
 local lockedTarget = nil
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "HAKAI HACKGui"
+ScreenGui.Name = "AimbotFOVGui"
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
@@ -72,8 +72,6 @@ Tab:CreateToggle({
 		FOVCircle.Visible = value
 	end
 })
-
--- Auto Lock toggle
 Tab:CreateToggle({
     Name = "Auto Lock",
     CurrentValue = false,
@@ -85,7 +83,6 @@ Tab:CreateToggle({
         end
     end
 })
-
 Tab:CreateToggle({
 	Name = "Verificar Times",
 	CurrentValue = true,
@@ -111,7 +108,6 @@ Tab:CreateSlider({
 		FOVCircle.Visible = value > 0 and AimbotEnabled
 	end
 })
-
 Tab:CreateSlider({
 	Name = "AimSpeed (quão grudado)",
 	Range = {0, 100},
@@ -128,7 +124,7 @@ Tab:CreateSlider({
 	Increment = 1,
 	CurrentValue = math.floor(PredictionMultiplier * 100),
 	Callback = function(value)
-		PredictionMultiplier = math.clamp(value / 100, 0, 0.5)
+		PredictionMultiplier = math.clamp(value / 100, 0, 0.3)  
 	end
 })
 local ESPTab = Window:CreateTab("ESP", 4483362458)
@@ -211,7 +207,6 @@ VisualTab:CreateToggle({
 		end
 	end
 })
-
 local Lighting = game:GetService("Lighting")
 local StarsGui
 local OriginalAmbient = Lighting.Ambient
@@ -219,7 +214,6 @@ local OriginalOutdoorAmbient = Lighting.OutdoorAmbient
 local OriginalBrightness = Lighting.Brightness
 local OriginalClockTime = Lighting.ClockTime
 local OriginalSky = Lighting:FindFirstChildOfClass("Sky")
-
 VisualTab:CreateToggle({
 	Name = "Modo Céu PvP Suave",
 	CurrentValue = false,
@@ -271,7 +265,6 @@ VisualTab:CreateToggle({
 		end
 	end
 })
-
 local OptimTab = Window:CreateTab("Otimização", 4483362458)
 OptimTab:CreateButton({
 	Name = "Otimizar FPS (Melhor Desempenho)",
@@ -289,7 +282,6 @@ OptimTab:CreateButton({
 		end
 	end
 })
-
 local FPSUnlockerEnabled = false
 OptimTab:CreateToggle({
 	Name = "Desbloquear FPS (Sem Limite de 60)",
@@ -398,100 +390,16 @@ Players.PlayerRemoving:Connect(function(plr)
 	end
 end)
 
-local function GetClosestTarget()
-    if AutoLockEnabled and lockedTarget and lockedTarget.player and lockedTarget.player.Character then
-        local part = lockedTarget.part
-        if part and part.Parent then
-            return lockedTarget
-        else
-            lockedTarget = nil
-        end
-    end
+local validPlayersCache = {}
+local lastCacheUpdate = 0
+local cacheUpdateInterval = 0.1 
 
-    local closest = nil
-    local shortestDist = FOVRadius
-    local players = Players:GetPlayers()
-    local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-
-    for i = 1, #players do
-        local player = players[i]
+local function UpdateValidPlayersCache()
+    validPlayersCache = {}
+    for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
             local part = player.Character:FindFirstChild(AimPart) or player.Character:FindFirstChild("HumanoidRootPart")
-            if part and part:IsA("BasePart") then
-                if TeamCheck and player.Team == LocalPlayer.Team then
-                    -- Ignora aliados
-                else
-                    local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-                    if onScreen then
-                        local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-                        if dist <= shortestDist then
-                            if WallCheck then
-                                local origin = Camera.CFrame.Position
-                                local direction = (part.Position - origin).Unit * 1000
-                                local raycastParams = RaycastParams.new()
-                                raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
-                                raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                raycastParams.IgnoreWater = true
-                                
-                                local result = workspace:Raycast(origin, direction, raycastParams)
-                                if result then
-                                    local hitPos = result.Position
-                                    local hitDist = (hitPos - part.Position).Magnitude
-                                    if hitDist <= 5 or (result.Instance and result.Instance:IsDescendantOf(player.Character)) then
-                                        closest = {player = player, part = part}
-                                        shortestDist = dist
-                                    end
-                                else
-                                    closest = {player = player, part = part}
-                                    shortestDist = dist
-                                end
-                            else
-                                closest = {player = player, part = part}
-                                shortestDist = dist
-                            end
-                        end
-                    end
-                end
+            if part and part:IsA("BasePart") and (not TeamCheck or player.Team ~= LocalPlayer.Team) then
+                table.insert(validPlayersCache, {player = player, part = part})
             end
         end
-    end
-
-    if AutoLockEnabled and closest then
-        lockedTarget = closest
-    end
-
-    return closest
-end
-
-local targetCache, lastTargetUpdate = nil, 0
-
-RunService.RenderStepped:Connect(function()
-	if FOVRainbow then
-		local hue = tick() % 5 / 5
-		local color = Color3.fromHSV(hue, 1, 1)
-		UIStroke.Color = color
-	else
-		UIStroke.Color = FOVColor
-	end
-
-	if AimbotEnabled then
-		if tick() - lastTargetUpdate > targetUpdateInterval then
-			targetCache = GetClosestTarget()
-			lastTargetUpdate = tick()
-		end
-
-		local t = targetCache
-		if t and t.player and t.part and t.part.Parent then
-			local aimPart = t.part
-			local vel = Vector3.new(0,0,0)
-			if aimPart and aimPart:IsA("BasePart") then
-				vel = aimPart.Velocity or Vector3.new(0,0,0)
-			end
-			local predictedPos = aimPart.Position + vel * PredictionMultiplier
-			local camPos = Camera.CFrame.Position
-			local newCF = CFrame.new(camPos, predictedPos)
-
-			Camera.CFrame = Camera.CFrame:Lerp(newCF, math.clamp(AimSpeed, 0, 1))
-		end
-	end
-end)
