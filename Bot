@@ -17,9 +17,9 @@ local FOVRainbow = false
 local FOVColor = Color3.fromRGB(0, 255, 0)
 
 local AimPart = "Head"
-local AimSpeed = 0.90
-local PredictionMultiplier = 0.18
-local targetUpdateInterval = 0.01
+local AimSpeed = 0.96
+local PredictionMultiplier = 0.16
+local targetUpdateInterval = 0.0001
 local AutoLock = false
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -149,12 +149,22 @@ ESPTab:CreateToggle({
 			if player ~= LocalPlayer then
 				local highlight = player.Character and player.Character:FindFirstChild("ESPHighlight")
 				if highlight then
-					highlight.Enabled = ESPEnabled and (not value or player.Team ~= LocalPlayer.Team)
+					local sameTeam = player.Team == LocalPlayer.Team
+					highlight.Enabled = ESPEnabled and (not ESPTeamCheck or not sameTeam)
 				end
 			end
 		end
 	end
 })
+Players.PlayerAdded:Connect(function(player)
+	player:GetPropertyChangedSignal("Team"):Connect(function()
+		local highlight = player.Character and player.Character:FindFirstChild("ESPHighlight")
+		if highlight then
+			local sameTeam = player.Team == LocalPlayer.Team
+			highlight.Enabled = ESPEnabled and (not ESPTeamCheck or not sameTeam)
+		end
+	end)
+end)
 ESPTab:CreateColorPicker({
 	Name = "Cor do Destaque",
 	Color = HighlightColor,
