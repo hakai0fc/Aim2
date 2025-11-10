@@ -9,7 +9,7 @@ local TweenService = game:GetService("TweenService")
 local AimbotEnabled = false
 local TeamCheck = true
 local WallCheck = true
-local FOVRadius = 3000
+local FOVRadius = 1500
 local ESPEnabled = false
 local ESPTeamCheck = true
 local HighlightColor = Color3.fromRGB(255, 0, 0)
@@ -17,12 +17,9 @@ local FOVRainbow = false
 local FOVColor = Color3.fromRGB(0, 255, 0)
 
 local AimPart = "Head"               
-local AimSpeed = 0.96               
-local PredictionMultiplier = 0.16    
-local targetUpdateInterval = 0.005  
-
-local AutoLockEnabled = false
-local lockedTarget = nil
+local AimSpeed = 0.96              
+local PredictionMultiplier = 0.16
+local targetUpdateInterval = 0.001   
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AimbotFOVGui"
@@ -47,17 +44,18 @@ local UICorner = Instance.new("UICorner", FOVCircle)
 UICorner.CornerRadius = UDim.new(1, 0)
 
 Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+
     FOVCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
     FOVCircle.Size = UDim2.new(0, FOVRadius * 2, 0, FOVRadius * 2)
 end)
 
 local Window = Rayfield:CreateWindow({
-	Name = "Aimbot FOV",
+	Name = "HAKAI Aimbot",
 	LoadingTitle = "Carregando...",
 	LoadingSubtitle = "By HAKAI",
 	ConfigurationSaving = {
 		Enabled = true,
-		FolderName = "AimbotFOV",
+		FolderName = "HAKAI Aimbot",
 		FileName = "settings"
 	},
 	KeySystem = false
@@ -71,17 +69,6 @@ Tab:CreateToggle({
 		AimbotEnabled = value
 		FOVCircle.Visible = value
 	end
-})
-Tab:CreateToggle({
-    Name = "Auto Lock",
-    CurrentValue = false,
-    Flag = "AutoLock",
-    Callback = function(value)
-        AutoLockEnabled = value
-        if not value then
-            lockedTarget = nil
-        end
-    end
 })
 Tab:CreateToggle({
 	Name = "Verificar Times",
@@ -108,6 +95,8 @@ Tab:CreateSlider({
 		FOVCircle.Visible = value > 0 and AimbotEnabled
 	end
 })
+
+
 Tab:CreateSlider({
 	Name = "AimSpeed (quão grudado)",
 	Range = {0, 100},
@@ -124,10 +113,16 @@ Tab:CreateSlider({
 	Increment = 1,
 	CurrentValue = math.floor(PredictionMultiplier * 100),
 	Callback = function(value)
-		PredictionMultiplier = math.clamp(value / 100, 0, 0.3)  
+		PredictionMultiplier = math.clamp(value / 100, 0, 0.5)
 	end
 })
 local ESPTab = Window:CreateTab("ESP", 4483362458)
+
+local DefaultTeamColors = {}
+for _, team in ipairs(game:GetService("Teams"):GetTeams()) do
+    DefaultTeamColors[team.Name] = team.TeamColor.Color
+end
+
 ESPTab:CreateToggle({
 	Name = "Ativar Destaque (Highlight)",
 	CurrentValue = false,
@@ -137,6 +132,13 @@ ESPTab:CreateToggle({
 			if player ~= LocalPlayer then
 				local highlight = player.Character and player.Character:FindFirstChild("ESPHighlight")
 				if highlight then
+					if ESPTeamCheck then
+						highlight.OutlineColor = player.Team.TeamColor.Color
+						highlight.FillColor = player.Team.TeamColor.Color
+					else
+						highlight.OutlineColor = HighlightColor
+						highlight.FillColor = HighlightColor
+					end
 					highlight.Enabled = value and (not ESPTeamCheck or player.Team ~= LocalPlayer.Team)
 				end
 			end
@@ -152,6 +154,13 @@ ESPTab:CreateToggle({
 			if player ~= LocalPlayer then
 				local highlight = player.Character and player.Character:FindFirstChild("ESPHighlight")
 				if highlight then
+					if value then
+						highlight.OutlineColor = player.Team.TeamColor.Color
+						highlight.FillColor = player.Team.TeamColor.Color
+					else
+						highlight.OutlineColor = HighlightColor
+						highlight.FillColor = HighlightColor
+					end
 					highlight.Enabled = ESPEnabled and (not value or player.Team ~= LocalPlayer.Team)
 				end
 			end
@@ -160,19 +169,20 @@ ESPTab:CreateToggle({
 })
 ESPTab:CreateColorPicker({
 	Name = "Cor do Destaque",
-	Color = HighlightColor,
+	Color = Color3.fromRGB(255, 0, 0), 
 	Callback = function(value)
 		HighlightColor = value
-		for _, player in ipairs(Players:GetPlayers()) do
-			local highlight = player.Character and player.Character:FindFirstChild("ESPHighlight")
-			if highlight then
-				highlight.OutlineColor = value
-				highlight.FillColor = value
+		if not ESPTeamCheck then 
+			for _, player in ipairs(Players:GetPlayers()) do
+				local highlight = player.Character and player.Character:FindFirstChild("ESPHighlight")
+				if highlight then
+					highlight.OutlineColor = value
+					highlight.FillColor = value
+				end
 			end
 		end
 	end
 })
-
 local VisualTab = Window:CreateTab("Visual", 4483362458)
 VisualTab:CreateToggle({
 	Name = "FOV Arco-Íris",
@@ -265,6 +275,7 @@ VisualTab:CreateToggle({
 		end
 	end
 })
+
 local OptimTab = Window:CreateTab("Otimização", 4483362458)
 OptimTab:CreateButton({
 	Name = "Otimizar FPS (Melhor Desempenho)",
@@ -282,6 +293,7 @@ OptimTab:CreateButton({
 		end
 	end
 })
+
 local FPSUnlockerEnabled = false
 OptimTab:CreateToggle({
 	Name = "Desbloquear FPS (Sem Limite de 60)",
@@ -390,16 +402,78 @@ Players.PlayerRemoving:Connect(function(plr)
 	end
 end)
 
-local validPlayersCache = {}
-local lastCacheUpdate = 0
-local cacheUpdateInterval = 0.1 
+local MAX_DISTANCE = 1500           
+local MIN_DISTANCE = 1            
+local targetUpdateInterval = 0.005   
+local targetCache, lastTargetUpdate = nil, 0
 
-local function UpdateValidPlayersCache()
-    validPlayersCache = {}
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local part = player.Character:FindFirstChild(AimPart) or player.Character:FindFirstChild("HumanoidRootPart")
-            if part and part:IsA("BasePart") and (not TeamCheck or player.Team ~= LocalPlayer.Team) then
-                table.insert(validPlayersCache, {player = player, part = part})
-            end
-        end
+local function GetClosestTarget()
+	local closest = nil
+	local shortestDist = MAX_DISTANCE
+	local players = Players:GetPlayers()
+	local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+
+	for i = 1, #players do
+		local player = players[i]
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			local part = player.Character:FindFirstChild(AimPart) or player.Character:FindFirstChild("HumanoidRootPart")
+			if part and part:IsA("BasePart") then
+				if TeamCheck and player.Team == LocalPlayer.Team then
+					continue
+				end
+
+				local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+				if not onScreen then continue end
+
+				local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+				if dist > shortestDist or dist < MIN_DISTANCE then continue end
+
+				if WallCheck then
+					local origin = Camera.CFrame.Position
+					local direction = (part.Position - origin).Unit * 5000
+					local raycastParams = RaycastParams.new()
+					raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+					raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+					raycastParams.IgnoreWater = true
+
+					local result = workspace:Raycast(origin, direction, raycastParams)
+					if result and not result.Instance:IsDescendantOf(player.Character) then
+						continue
+					end
+				end
+
+				closest = {player = player, part = part}
+				shortestDist = dist
+			end
+		end
+	end
+
+	return closest
+end
+
+RunService.RenderStepped:Connect(function()
+	if AimbotEnabled then
+		if tick() - lastTargetUpdate > targetUpdateInterval then
+			targetCache = GetClosestTarget()
+			lastTargetUpdate = tick()
+		end
+
+		local t = targetCache
+		if t and t.player and t.part and t.part.Parent then
+			local aimPart = t.part
+			local vel = aimPart.Velocity or Vector3.new(0,0,0)
+			local predictedPos = aimPart.Position + vel * PredictionMultiplier
+			local camPos = Camera.CFrame.Position
+			local newCF = CFrame.new(camPos, predictedPos)
+			Camera.CFrame = Camera.CFrame:Lerp(newCF, math.clamp(AimSpeed, 0, 1))
+		end
+	end
+
+	if FOVRainbow then
+		local hue = tick() % 5 / 5
+		local color = Color3.fromHSV(hue, 1, 1)
+		UIStroke.Color = color
+	else
+		UIStroke.Color = FOVColor
+	end
+end)
