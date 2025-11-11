@@ -419,7 +419,7 @@ RunService.RenderStepped:Connect(function()
 				local screenPos = Vector2.new(pos.X, pos.Y)
 				local distFromCenter = (screenPos - center).Magnitude
 
-				if distFromCenter > ( (FOVRadius + ClickFOV) then
+				if distFromCenter > (FOVRadius + ClickFOV) then
 					return
 				end
 
