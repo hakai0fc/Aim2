@@ -403,6 +403,8 @@ local function GetClosestTarget()
 	return closest
 end
 
+local currentTarget = nil
+
 RunService.RenderStepped:Connect(function()
 	if FOVRainbow and UIStroke then
 		local hue = tick() % 5 / 5
@@ -410,32 +412,48 @@ RunService.RenderStepped:Connect(function()
 	end
 
 	if AimbotEnabled then
-		local target = GetClosestTarget()
-		if target and target.Character then
+		local function IsTargetValid(target)
+			if not target or not target.Character then
+				return false
+			end
 			local part = target.Character:FindFirstChild(AimPart)
+			if not part then
+				return false
+			end
+
+			local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+			if not onScreen then
+				return false
+			end
+
+			local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+			local screenPos = Vector2.new(pos.X, pos.Y)
+			local dist = (screenPos - center).Magnitude
+
+			return dist <= (FOVRadius + ClickFOV)
+		end
+		if not currentTarget or not IsTargetValid(currentTarget) then
+			currentTarget = GetClosestTarget()
+		end
+
+		if currentTarget and IsTargetValid(currentTarget) then
+			local part = currentTarget.Character:FindFirstChild(AimPart)
 			if part then
-				local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-				local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-				local screenPos = Vector2.new(pos.X, pos.Y)
-				local distFromCenter = (screenPos - center).Magnitude
-
-				if distFromCenter > (FOVRadius + ClickFOV) then
-					return
-				end
-
 				local headPos = part.Position
 				local camPos = Camera.CFrame.Position
 				local distance = (headPos - camPos).Magnitude
 				local lerpAmount = math.clamp(AimSpeed, 0, 1)
 				local predicted = headPos + (part.Velocity or Vector3.new()) * PredictionMultiplier
 				local newCF = CFrame.new(camPos, predicted)
-
+				local CloseDistanceThreshold = 4
 				if distance <= CloseDistanceThreshold then
 					Camera.CFrame = Camera.CFrame:Lerp(newCF, 1)
 				else
 					Camera.CFrame = Camera.CFrame:Lerp(newCF, lerpAmount)
 				end
 			end
+		else
+			currentTarget = nil
 		end
 	end
 end)
