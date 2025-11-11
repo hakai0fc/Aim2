@@ -412,25 +412,52 @@ RunService.RenderStepped:Connect(function()
 	end
 
 	if AimbotEnabled then
+		local function IsInFOV(targetPart, radius)
+			local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+			if not onScreen then return false end
+			local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+			local dist = (Vector2.new(pos.X, pos.Y) - screenCenter).Magnitude
+			return dist <= radius
+		end
 		local function IsTargetValid(target)
-			if not target or not target.Character then
-				return false
-			end
+			if not target or not target.Character then return false end
+
 			local part = target.Character:FindFirstChild(AimPart)
-			if not part then
+			if not part then return false end
+
+			if not IsInFOV(part, FOVRadius + ClickFOV) then
 				return false
 			end
 
-			local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-			if not onScreen then
-				return false
+			if WallCheck then
+				local origin = Camera.CFrame.Position
+				local direction = (part.Position - origin).Unit * 10000
+
+				local rayParams = RaycastParams.new()
+				rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+				rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+				local result = workspace:Raycast(origin, direction, rayParams)
+				if result then
+					local hit = result.Instance
+					local ignoredMaterials = {
+						[Enum.Material.Air] = true,
+						[Enum.Material.Grass] = true,
+						[Enum.Material.Wood] = true
+					}
+
+					local ignore = false
+					if hit.Transparency > 0.8 or not hit.CanCollide or ignoredMaterials[hit.Material] then
+						ignore = true
+					end
+
+					if not hit:IsDescendantOf(target.Character) and not ignore then
+						return false
+					end
+				end
 			end
 
-			local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-			local screenPos = Vector2.new(pos.X, pos.Y)
-			local dist = (screenPos - center).Magnitude
-
-			return dist <= (FOVRadius + ClickFOV)
+			return true
 		end
 		if not currentTarget or not IsTargetValid(currentTarget) then
 			currentTarget = GetClosestTarget()
@@ -445,7 +472,7 @@ RunService.RenderStepped:Connect(function()
 				local lerpAmount = math.clamp(AimSpeed, 0, 1)
 				local predicted = headPos + (part.Velocity or Vector3.new()) * PredictionMultiplier
 				local newCF = CFrame.new(camPos, predicted)
-				local CloseDistanceThreshold = 4
+
 				if distance <= CloseDistanceThreshold then
 					Camera.CFrame = Camera.CFrame:Lerp(newCF, 1)
 				else
