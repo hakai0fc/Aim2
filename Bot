@@ -19,6 +19,7 @@ local AimPart = "Head"
 local AimSpeed = 0.96
 local PredictionMultiplier = 0.16
 local targetUpdateInterval = 0.001
+local ClickFOV = 10
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AimbotFOVGui"
@@ -116,6 +117,15 @@ Tab:CreateSlider({
 	Callback = function(value)
 		PredictionMultiplier = math.clamp(value / 100, 0, 0.5)
 	end
+})
+Tab:CreateSlider({
+    Name = "Click FOV (Desgrudar Mira)",
+    Range = {1, 100},
+    Increment = 1,
+    CurrentValue = ClickFOV,
+    Callback = function(value)
+        ClickFOV = value
+    end
 })
 
 local ESPTab = Window:CreateTab("ESP", 4483362458)
@@ -376,7 +386,6 @@ local function GetClosestTarget()
 							end
 						end
 					else
-						-- Nenhum obstáculo — pode mirar
 						if dist < shortestDist then
 							closest = player
 							shortestDist = dist
@@ -410,7 +419,7 @@ RunService.RenderStepped:Connect(function()
 				local screenPos = Vector2.new(pos.X, pos.Y)
 				local distFromCenter = (screenPos - center).Magnitude
 
-				if distFromCenter > (FOVRadius + 10) then
+				if distFromCenter > ( (FOVRadius + ClickFOV) then
 					return
 				end
 
