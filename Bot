@@ -19,7 +19,7 @@ local AimPart = "Head"
 local AimSpeed = 0.96
 local PredictionMultiplier = 0.16
 local targetUpdateInterval = 0.001
-local ClickFOV = 10
+local ClickFOV = 35
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AimbotFOVGui"
