@@ -5,7 +5,6 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 
 local AimbotEnabled = false
 local TeamCheck = true
@@ -20,9 +19,6 @@ local AimPart = "Head"
 local AimSpeed = 0.96
 local PredictionMultiplier = 0.16
 local targetUpdateInterval = 0.001
-
-local UnstickExtra = 10
-local LockedTarget = nil
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AimbotFOVGui"
@@ -208,6 +204,91 @@ VisualTab:CreateColorPicker({
 
 local Lighting = game:GetService("Lighting")
 
+local OptimTab = Window:CreateTab("Otimização", 4483362458)
+
+OptimTab:CreateButton({
+	Name = "Otimizar FPS (Melhor Desempenho)",
+	Callback = function()
+		settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+		for _, v in ipairs(workspace:GetDescendants()) do
+			if v:IsA("BasePart") then
+				v.Material = Enum.Material.SmoothPlastic
+				v.Reflectance = 0
+			elseif v:IsA("Decal") then
+				v.Transparency = 1
+			elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+				v.Enabled = false
+			end
+		end
+	end
+})
+
+local FPSUnlockerEnabled = false
+OptimTab:CreateToggle({
+	Name = "Desbloquear FPS (Sem Limite de 60)",
+	CurrentValue = false,
+	Callback = function(value)
+		FPSUnlockerEnabled = value
+		if value then
+			if type(setfpscap) == "function" then
+				setfpscap(1000)
+			end
+			Rayfield:Notify({Title = "FPS Desbloqueado", Content = "Limite de FPS removido (se suportado).", Duration = 4})
+		else
+			if type(setfpscap) == "function" then
+				setfpscap(60)
+			end
+			Rayfield:Notify({Title = "FPS Restaurado", Content = "Limite de FPS ajustado para 60 (se suportado).", Duration = 4})
+		end
+	end
+})
+
+OptimTab:CreateButton({
+	Name = "Otimizar Ping (Reduz Uso de Rede)",
+	Callback = function()
+		for _, obj in ipairs(workspace:GetDescendants()) do
+			if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then
+				obj.Enabled = false
+			elseif obj:IsA("Explosion") then
+				obj.Visible = false
+			end
+		end
+		settings().Physics.AllowSleep = true
+		settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Default
+		game:GetService("Lighting").GlobalShadows = false
+		game:GetService("Lighting").FogEnd = 100000
+		workspace.Terrain.WaterWaveSize = 0
+		workspace.Terrain.WaterWaveSpeed = 0
+		workspace.Terrain.WaterReflectance = 0
+		workspace.Terrain.WaterTransparency = 1
+		Rayfield:Notify({
+			Title = "Ping Otimizado",
+			Content = "Configurações aplicadas com sucesso!",
+			Duration = 5
+		})
+	end
+})
+
+OptimTab:CreateButton({
+	Name = "Skybox PvP (Estilo Brilhante)",
+	Callback = function()
+		for _, v in ipairs(Lighting:GetChildren()) do
+			if v:IsA("Sky") then v:Destroy() end
+		end
+		local sky = Instance.new("Sky", Lighting)
+		sky.SkyboxBk = "rbxassetid://159454299"
+		sky.SkyboxDn = "rbxassetid://159454296"
+		sky.SkyboxFt = "rbxassetid://159454293"
+		sky.SkyboxLf = "rbxassetid://159454286"
+		sky.SkyboxRt = "rbxassetid://159454300"
+		sky.SkyboxUp = "rbxassetid://159454288"
+		sky.StarCount = 3000
+		sky.SunAngularSize = 0
+		sky.MoonAngularSize = 11
+		Lighting.TimeOfDay = "18:00:00"
+	end
+})
+
 local function ApplyHighlight(player)
 	if not player.Character then return end
 	local existing = player.Character:FindFirstChild("ESPHighlight")
@@ -222,25 +303,24 @@ local function ApplyHighlight(player)
 	highlight.Parent = player.Character
 end
 
-for _, player in ipairs(Players:GetPlayers()) do
+local function SetupCharacterHighlight(player)
 	if player ~= LocalPlayer then
 		player.CharacterAdded:Connect(function()
 			repeat task.wait() until player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 			ApplyHighlight(player)
 		end)
 	end
+end
+
+for _, player in ipairs(Players:GetPlayers()) do
+	SetupCharacterHighlight(player)
 	if player.Character then
 		ApplyHighlight(player)
 	end
 end
 
 Players.PlayerAdded:Connect(function(player)
-	if player ~= LocalPlayer then
-		player.CharacterAdded:Connect(function()
-			repeat task.wait() until player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-			ApplyHighlight(player)
-		end)
-	end
+	SetupCharacterHighlight(player)
 end)
 
 local CloseDistanceThreshold = 4
@@ -253,26 +333,50 @@ local function GetClosestTarget()
 			local part = player.Character:FindFirstChild(AimPart)
 			if not part then continue end
 			if TeamCheck and player.Team == LocalPlayer.Team then continue end
+
 			local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
 			local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 			local screenPos = Vector2.new(pos.X, pos.Y)
 			local dist = (screenPos - center).Magnitude
-			if onScreen and dist <= FOVRadius then
+
+			local headRadiusOnScreen = 0
+			do
+				local edgeWorldPos = part.Position + (part.CFrame.RightVector * (math.max(part.Size.X, part.Size.Y, part.Size.Z) / 2))
+				local edgePos = Camera:WorldToViewportPoint(edgeWorldPos)
+				headRadiusOnScreen = (Vector2.new(edgePos.X, edgePos.Y) - screenPos).Magnitude
+			end
+
+			if onScreen and (dist <= FOVRadius or headRadiusOnScreen >= FOVRadius) or (not onScreen and dist <= FOVRadius) then
 				if WallCheck then
 					local origin = Camera.CFrame.Position
 					local direction = (part.Position - origin).Unit * 10000
+
 					local raycastParams = RaycastParams.new()
 					raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
 					raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
 					local result = workspace:Raycast(origin, direction, raycastParams)
 					if result then
-						if result.Instance:IsDescendantOf(player.Character) then
+						local hit = result.Instance
+						local ignore = false
+
+						local ignoredMaterials = {
+							[Enum.Material.Air] = true,
+							[Enum.Material.Grass] = true,
+							[Enum.Material.Wood] = true
+						}
+
+						if hit.Transparency > 0.8 or not hit.CanCollide or ignoredMaterials[hit.Material] then
+							ignore = true
+						end
+						if hit:IsDescendantOf(player.Character) or ignore then
 							if dist < shortestDist then
 								closest = player
 								shortestDist = dist
 							end
 						end
 					else
+						-- Nenhum obstáculo — pode mirar
 						if dist < shortestDist then
 							closest = player
 							shortestDist = dist
@@ -291,40 +395,37 @@ local function GetClosestTarget()
 end
 
 RunService.RenderStepped:Connect(function()
-	if FOVRainbow then
+	if FOVRainbow and UIStroke then
 		local hue = tick() % 5 / 5
 		UIStroke.Color = Color3.fromHSV(hue, 1, 1)
 	end
-	if not AimbotEnabled then
-		LockedTarget = nil
-		return
-	end
-	if LockedTarget and LockedTarget.Character and LockedTarget.Character:FindFirstChild(AimPart) then
-		local part = LockedTarget.Character[AimPart]
-		local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-		local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-		local screenPos = Vector2.new(pos.X, pos.Y)
-		local dist = (screenPos - center).Magnitude
-		if dist > (FOVRadius + UnstickExtra) then
-			LockedTarget = nil
-		end
-	end
-	if not LockedTarget then
-		LockedTarget = GetClosestTarget()
-	end
-	if LockedTarget and LockedTarget.Character then
-		local part = LockedTarget.Character:FindFirstChild(AimPart)
-		if part then
-			local headPos = part.Position
-			local camPos = Camera.CFrame.Position
-			local distance = (headPos - camPos).Magnitude
-			local lerpAmount = math.clamp(AimSpeed, 0, 1)
-			local predicted = headPos + (part.Velocity or Vector3.new()) * PredictionMultiplier
-			local newCF = CFrame.new(camPos, predicted)
-			if distance <= CloseDistanceThreshold then
-				Camera.CFrame = Camera.CFrame:Lerp(newCF, 1)
-			else
-				Camera.CFrame = Camera.CFrame:Lerp(newCF, lerpAmount)
+
+	if AimbotEnabled then
+		local target = GetClosestTarget()
+		if target and target.Character then
+			local part = target.Character:FindFirstChild(AimPart)
+			if part then
+				local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+				local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+				local screenPos = Vector2.new(pos.X, pos.Y)
+				local distFromCenter = (screenPos - center).Magnitude
+
+				if distFromCenter > (FOVRadius + 10) then
+					return
+				end
+
+				local headPos = part.Position
+				local camPos = Camera.CFrame.Position
+				local distance = (headPos - camPos).Magnitude
+				local lerpAmount = math.clamp(AimSpeed, 0, 1)
+				local predicted = headPos + (part.Velocity or Vector3.new()) * PredictionMultiplier
+				local newCF = CFrame.new(camPos, predicted)
+
+				if distance <= CloseDistanceThreshold then
+					Camera.CFrame = Camera.CFrame:Lerp(newCF, 1)
+				else
+					Camera.CFrame = Camera.CFrame:Lerp(newCF, lerpAmount)
+				end
 			end
 		end
 	end
