@@ -373,7 +373,8 @@ local function GetClosestTarget()
 						local ignoredMaterials = {
 							[Enum.Material.Air] = true,
 							[Enum.Material.Grass] = true,
-							[Enum.Material.Wood] = true
+							[Enum.Material.Wood] = true,
+          [Enum.Material.ForceField] = true
 						}
 
 						if hit.Transparency > 0.8 or not hit.CanCollide or ignoredMaterials[hit.Material] then
